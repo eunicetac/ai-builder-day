@@ -181,6 +181,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .result-flags{color:#E8750A;font-weight:600}
 .see-results-btn{display:inline-block;margin-top:1rem;padding:.45rem .9rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer}
 
+/* Mobile leaderboard cards */
+.mobile-lb{display:none}
+.mlb-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;margin-bottom:.6rem;cursor:pointer}
+.mlb-card.selected{border-color:var(--accent);background:#f4f6ff}
+.mlb-header{display:flex;align-items:center;gap:.7rem;margin-bottom:.6rem}
+.mlb-rank{font-size:.8rem;font-weight:700;color:var(--ink-3);width:1.6rem;flex-shrink:0}
+.mlb-rank-top{color:var(--accent)}
+.mlb-team{flex:1;min-width:0}
+.mlb-name{font-weight:600;font-size:.9rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mlb-file{font-size:.7rem;color:var(--ink-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mlb-score{font-size:1.1rem;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0}
+.mlb-score-denom{font-size:.75rem;font-weight:400;color:var(--ink-3)}
+.mlb-criteria{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
+.mlb-crit{background:var(--surface);border-radius:6px;padding:.4rem .3rem;text-align:center}
+.mlb-crit-label{display:block;font-size:.6rem;color:var(--ink-3);margin-bottom:.25rem}
+.mlb-dot{width:5px;height:5px;border-radius:50%;background:#E8750A;display:inline-block;vertical-align:middle;margin-left:2px}
+
+/* Mobile breakdown */
+.mobile-breakdown{background:var(--white);border:1px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem}
+.mbd-header{font-weight:700;font-size:.88rem;margin-bottom:.7rem;color:var(--ink)}
+.mbd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.mbd-cell{background:var(--surface);border-radius:6px;padding:.5rem .6rem;text-align:center}
+.mbd-label{font-size:.65rem;color:var(--ink-3);margin-bottom:.25rem}
+.mbd-conf{font-size:.65rem;color:var(--ink-3);margin-top:.2rem}
+.mbd-bl{font-size:.62rem;color:#E8750A;margin-top:.15rem}
+
 /* Mobile bottom nav */
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--ink);border-top:1px solid rgba(255,255,255,.1);z-index:200}
 .mobile-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.45);font-size:.62rem;font-weight:500;gap:.18rem;text-decoration:none;padding:.4rem 0}
@@ -205,10 +231,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   .breakdown-grid{grid-template-columns:1fr}
   .mini-grid{grid-template-columns:repeat(2,1fr)}
 
-  /* Leaderboard: horizontal scroll, hide Raw column */
-  .leaderboard{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .lb-table{min-width:560px}
-  .col-raw{display:none}
+  /* Leaderboard: card list replaces table */
+  .leaderboard{display:none}
+  .mobile-lb{display:block}
+  #breakdown-section{display:none}
 
   /* Conv table: allow wrapping */
   .conv-table{flex-wrap:wrap}
@@ -522,7 +548,33 @@ async function renderResults() {
       </table>
     </div>`;
 
-  container.innerHTML = summaryHtml + tableHtml + '<div id="breakdown-section"></div>';
+  const mobileCards = sorted.map((r, i) => {
+    const rank = i + 1;
+    const rankCls = rank <= 2 ? 'mlb-rank mlb-rank-top' : 'mlb-rank';
+    const crits = CRITERIA_ORDER.map(k => {
+      const c = r.criteria[k];
+      const dot = c?.borderline ? '<span class="mlb-dot"></span>' : '';
+      return `<div class="mlb-crit">
+        <span class="mlb-crit-label">${CRITERIA_LABELS[k].abbrev}</span>
+        ${badge(c.score)}${dot}
+      </div>`;
+    }).join('');
+    return `<div class="mlb-card" data-idx="${i}" onclick="selectBreakdown(${i})">
+      <div class="mlb-header">
+        <span class="${rankCls}">#${rank}</span>
+        <div class="mlb-team">
+          <span class="mlb-name">${esc(r.team)}</span>
+          <span class="mlb-file">${esc(r.file)}</span>
+        </div>
+        <span class="mlb-score">${r.weighted_score.toFixed(0)}<span class="mlb-score-denom">/40</span></span>
+      </div>
+      <div class="mlb-criteria">${crits}</div>
+    </div>`;
+  }).join('');
+
+  const mobileLbHtml = `<div class="mobile-lb" id="mobile-lb">${mobileCards}</div>`;
+
+  container.innerHTML = summaryHtml + tableHtml + mobileLbHtml + '<div id="breakdown-section"></div>';
   renderBreakdown(0);
 }
 
@@ -553,14 +605,42 @@ function renderBreakdown(idx) {
   const section = document.getElementById('breakdown-section');
   if (!section) return;
   const r = _sortedResults[idx];
+
+  // Desktop breakdown
   section.innerHTML = `
     <div class="breakdown-label" style="margin-top:1.8rem">Criterion breakdown — ${esc(r.team)}</div>
     <div class="breakdown-grid" style="grid-template-columns:1fr">${breakdownCard(r)}</div>`;
 
+  // Desktop row highlight
   document.querySelectorAll('#lb-body tr').forEach(row => {
-    const isSelected = parseInt(row.dataset.idx) === idx;
-    row.style.background = isSelected ? '#eef1ff' : '';
+    row.style.background = parseInt(row.dataset.idx) === idx ? '#eef1ff' : '';
   });
+
+  // Mobile: highlight card and inject breakdown after it
+  document.querySelectorAll('.mlb-card').forEach(card => {
+    card.classList.toggle('selected', parseInt(card.dataset.idx) === idx);
+  });
+  const existingMbd = document.getElementById('mobile-breakdown');
+  if (existingMbd) existingMbd.remove();
+  const selectedCard = document.querySelector(`.mlb-card[data-idx="${idx}"]`);
+  if (selectedCard) {
+    const cells = CRITERIA_ORDER.map(k => {
+      const c = r.criteria[k];
+      const bl = c?.borderline ? `<div class="mbd-bl">⚠ borderline</div>` : '';
+      const conf = c?.confidence != null ? `<div class="mbd-conf">conf ${Math.round(c.confidence*100)}%</div>` : '';
+      return `<div class="mbd-cell">
+        <div class="mbd-label">${CRITERIA_LABELS[k].label}</div>
+        ${badge(c.score)}
+        ${bl}${conf}
+        ${distBars(c?.distribution)}
+      </div>`;
+    }).join('');
+    const mbd = document.createElement('div');
+    mbd.id = 'mobile-breakdown';
+    mbd.className = 'mobile-breakdown';
+    mbd.innerHTML = `<div class="mbd-header">${esc(r.team)} · ${r.weighted_score.toFixed(0)}/40 · Raw ${r.raw_total}/20</div><div class="mbd-grid">${cells}</div>`;
+    selectedCard.after(mbd);
+  }
 }
 
 function selectBreakdown(idx) {
