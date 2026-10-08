@@ -378,11 +378,13 @@ function badge(score, sm) {
   return `<span class="${cls} badge-${score}">${score}</span>`;
 }
 
+const DIST_LABELS = ['1·Wk','2·Li','3·Gd','4·St','5·Ex'];
+
 function distBars(distribution) {
   if (!distribution || !distribution.length) return '';
   return '<div class="dist-bars">' + distribution.map((p, i) =>
     `<div class="dist-row">
-      <span class="dist-level">L${i+1}</span>
+      <span class="dist-level" title="${SCORE_LABELS[i+1]}">${DIST_LABELS[i]}</span>
       <div class="dist-bar-wrap"><div class="dist-bar" style="width:${Math.round(p*100)}%"></div></div>
       <span class="dist-pct">${Math.round(p*100)}%</span>
     </div>`
@@ -390,6 +392,9 @@ function distBars(distribution) {
 }
 
 // --- Results page (always fetches fresh from API) ---
+let _sortedResults = [];
+let _selectedIdx = 0;
+
 async function renderResults() {
   const container = document.getElementById('results-content');
   container.innerHTML = '<div style="color:var(--ink-3);padding:2rem 0">Loading…</div>';
@@ -414,7 +419,10 @@ async function renderResults() {
     return;
   }
 
-  const sorted = [...results].sort((a,b) => b.weighted_score - a.weighted_score);
+  _sortedResults = [...results].sort((a,b) => b.weighted_score - a.weighted_score);
+  _selectedIdx = 0;
+
+  const sorted = _sortedResults;
   const highest = Math.max(...results.map(r => r.weighted_score));
   const avg = Math.round(results.reduce((s,r) => s+r.weighted_score, 0) / results.length);
   const flags = results.reduce((s,r) => s + CRITERIA_ORDER.filter(k => r.criteria[k]?.borderline).length, 0);
@@ -440,7 +448,7 @@ async function renderResults() {
       return `<td class="col-criterion"><div class="criterion-cell">${badge(c.score)}${dot}</div></td>`;
     }).join('');
     const barW = Math.round((r.weighted_score / 40) * 100);
-    return `<tr>
+    return `<tr data-idx="${i}" onclick="selectBreakdown(${i})" style="cursor:pointer">
       <td class="col-rank"><span class="${rankCls}">${rank}</span></td>
       <td class="col-team"><div class="team-name">${esc(r.team)}</div><div class="team-file">${esc(r.file)}</div></td>
       ${critCells}
@@ -456,7 +464,7 @@ async function renderResults() {
 
   const tableHtml = `
     <div class="leaderboard">
-      <table class="lb-table">
+      <table class="lb-table" id="lb-table">
         <thead><tr>
           <th class="col-rank">#</th>
           <th class="col-team">Team</th>
@@ -467,43 +475,53 @@ async function renderResults() {
           <th class="col-raw">Raw</th>
           <th class="col-score">Score /40</th>
         </tr></thead>
-        <tbody>${tableRows}</tbody>
+        <tbody id="lb-body">${tableRows}</tbody>
       </table>
     </div>`;
 
-  const top = sorted[0];
-  const bottom = sorted[sorted.length - 1];
+  container.innerHTML = summaryHtml + tableHtml + '<div id="breakdown-section"></div>';
+  renderBreakdown(0);
+}
 
-  function breakdownCard(r) {
-    const cells = CRITERIA_ORDER.map(k => {
-      const c = r.criteria[k];
-      const lbl = CRITERIA_LABELS[k].abbrev;
-      const bl = c?.borderline ? '<div class="mini-borderline">⚠ borderline</div>' : '';
-      const conf = c?.confidence != null ? `<div class="mini-conf">conf ${Math.round(c.confidence*100)}%</div>` : '';
-      const dist = distBars(c?.distribution);
-      return `<div class="mini-cell">
-        <div class="mini-label">${lbl}</div>
-        ${badge(c.score)}
-        ${bl}${conf}${dist}
-      </div>`;
-    }).join('');
-    return `<div class="breakdown-card">
-      <div class="breakdown-header">
-        <span class="breakdown-team">${esc(r.team)}</span>
-        <span class="breakdown-wscore">${r.weighted_score.toFixed(0)}/40</span>
-      </div>
-      <div class="mini-grid">${cells}</div>
+function breakdownCard(r) {
+  const cells = CRITERIA_ORDER.map(k => {
+    const c = r.criteria[k];
+    const lbl = CRITERIA_LABELS[k].abbrev;
+    const bl = c?.borderline ? '<div class="mini-borderline">⚠ borderline</div>' : '';
+    const conf = c?.confidence != null ? `<div class="mini-conf">conf ${Math.round(c.confidence*100)}%</div>` : '';
+    const dist = distBars(c?.distribution);
+    return `<div class="mini-cell">
+      <div class="mini-label">${lbl}</div>
+      ${badge(c.score)}
+      ${bl}${conf}${dist}
     </div>`;
-  }
+  }).join('');
+  return `<div class="breakdown-card" style="grid-column:1/-1">
+    <div class="breakdown-header">
+      <span class="breakdown-team">${esc(r.team)}</span>
+      <span class="breakdown-wscore">${r.weighted_score.toFixed(0)}/40 · Raw ${r.raw_total}/20</span>
+    </div>
+    <div class="mini-grid">${cells}</div>
+  </div>`;
+}
 
-  const breakdownHtml = `
-    <div class="breakdown-label">Criterion breakdown</div>
-    <div class="breakdown-grid">
-      ${breakdownCard(top)}
-      ${sorted.length > 1 ? breakdownCard(bottom) : ''}
-    </div>`;
+function renderBreakdown(idx) {
+  _selectedIdx = idx;
+  const section = document.getElementById('breakdown-section');
+  if (!section) return;
+  const r = _sortedResults[idx];
+  section.innerHTML = `
+    <div class="breakdown-label" style="margin-top:1.8rem">Criterion breakdown — ${esc(r.team)}</div>
+    <div class="breakdown-grid" style="grid-template-columns:1fr">${breakdownCard(r)}</div>`;
 
-  container.innerHTML = summaryHtml + tableHtml + breakdownHtml;
+  document.querySelectorAll('#lb-body tr').forEach(row => {
+    const isSelected = parseInt(row.dataset.idx) === idx;
+    row.style.background = isSelected ? '#eef1ff' : '';
+  });
+}
+
+function selectBreakdown(idx) {
+  renderBreakdown(idx);
 }
 
 // --- Judge page ---
