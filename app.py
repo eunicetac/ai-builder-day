@@ -172,11 +172,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .result-wscore-num{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums}
 .result-wscore-denom{font-size:.85rem;color:var(--ink-3)}
 .criteria-list{display:flex;flex-direction:column;gap:.7rem}
+.crit-item{margin-bottom:.7rem}
 .crit-row{display:flex;align-items:center;gap:.8rem}
 .crit-text{flex:1}
 .crit-name{font-size:.85rem;font-weight:600}
 .crit-anchor{font-size:.72rem;color:var(--ink-3);margin-top:.1rem}
-.crit-dist{width:100px;flex-shrink:0}
+.crit-dist-full{padding-left:2.8rem;margin-top:.35rem}
 .result-footer{border-top:1px solid var(--border);margin-top:1rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--ink-3)}
 .result-flags{color:#E8750A;font-weight:600}
 .see-results-btn{display:inline-block;margin-top:1rem;padding:.45rem .9rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer}
@@ -709,13 +710,15 @@ function renderJudgeResult(result) {
     const c = result.criteria[k];
     const info = CRITERIA_LABELS[k];
     const anchor = `${c.score} — ${SCORE_LABELS[c.score]}`;
-    return `<div class="crit-row">
-      ${badge(c.score)}
-      <div class="crit-text">
-        <div class="crit-name">${esc(info.label)}</div>
-        <div class="crit-anchor">${anchor}</div>
+    return `<div class="crit-item">
+      <div class="crit-row">
+        ${badge(c.score)}
+        <div class="crit-text">
+          <div class="crit-name">${esc(info.label)}</div>
+          <div class="crit-anchor">${anchor}</div>
+        </div>
       </div>
-      <div class="crit-dist">${distBars(c.distribution)}</div>
+      <div class="crit-dist-full">${distBars(c.distribution)}</div>
     </div>`;
   }).join('');
 
