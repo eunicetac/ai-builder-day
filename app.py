@@ -180,6 +180,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .result-footer{border-top:1px solid var(--border);margin-top:1rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--ink-3)}
 .result-flags{color:#E8750A;font-weight:600}
 .see-results-btn{display:inline-block;margin-top:1rem;padding:.45rem .9rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer}
+
+/* Mobile bottom nav */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--ink);border-top:1px solid rgba(255,255,255,.1);z-index:200}
+.mobile-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.45);font-size:.62rem;font-weight:500;gap:.18rem;text-decoration:none;padding:.4rem 0}
+.mobile-nav a.active{color:#fff}
+.mobile-nav-icon{font-size:1.15rem;line-height:1}
+
+@media(max-width:768px){
+  #sidebar{display:none}
+  #main{margin-left:0}
+  .topbar{padding:0 1rem}
+  .topbar-meta{display:none}
+  .content{padding:1rem 1rem 5rem}
+  .mobile-nav{display:flex}
+
+  /* Grids */
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .anchor-grid{grid-template-columns:1fr;gap:.5rem}
+  .anchor-cell{display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .7rem}
+  .anchor-cell .anchor-level{margin-top:0;white-space:nowrap}
+  .anchor-cell .anchor-desc{font-size:.72rem}
+  .judge-layout{grid-template-columns:1fr}
+  .breakdown-grid{grid-template-columns:1fr}
+  .mini-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* Leaderboard: horizontal scroll, hide Raw column */
+  .leaderboard{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .lb-table{min-width:560px}
+  .col-raw{display:none}
+
+  /* Conv table: allow wrapping */
+  .conv-table{flex-wrap:wrap}
+  .conv-cell{min-width:3rem}
+
+  /* Criterion block spacing */
+  .criterion-block{margin-bottom:1.2rem}
+}
 </style>
 </head>
 <body>
@@ -335,6 +372,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   </div>
 </div>
 
+<nav class="mobile-nav" id="mobile-nav">
+  <a href="#" data-page="criteria" class="active"><span class="mobile-nav-icon">◎</span>Criteria</a>
+  <a href="#" data-page="results"><span class="mobile-nav-icon">◈</span>Results</a>
+  <a href="#" data-page="judge"><span class="mobile-nav-icon">⊕</span>Judge</a>
+</nav>
+
 <script>
 const CRITERIA_ORDER = ["problem_and_user","problem_understanding","outcomes","test_and_learn"];
 const CRITERIA_LABELS = {
@@ -357,9 +400,9 @@ const TOPBAR = {
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sb-nav a').forEach(a => a.classList.remove('active'));
+  document.querySelectorAll('.sb-nav a, .mobile-nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  document.querySelector(`.sb-nav a[data-page="${page}"]`).classList.add('active');
+  document.querySelectorAll(`[data-page="${page}"]`).forEach(a => a.classList.add('active'));
   topbarTitle.textContent = TOPBAR[page].title;
   if (page === 'results') {
     renderResults();
@@ -368,7 +411,7 @@ function navigate(page) {
   }
 }
 
-document.querySelectorAll('.sb-nav a').forEach(a => {
+document.querySelectorAll('.sb-nav a, .mobile-nav a').forEach(a => {
   a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.page); });
 });
 
