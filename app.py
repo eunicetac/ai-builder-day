@@ -134,7 +134,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .mini-conf{font-size:.72rem;color:var(--ink-3);margin-top:.1rem}
 .dist-bars{margin-top:.5rem}
 .dist-row{display:flex;align-items:center;gap:.3rem;margin-top:.2rem}
-.dist-level{font-size:.65rem;color:var(--ink-3);width:1.4rem;flex-shrink:0}
+.dist-level{font-size:.65rem;color:var(--ink-3);width:4.2rem;flex-shrink:0}
 .dist-bar-wrap{flex:1;height:4px;background:var(--border);border-radius:99px;overflow:hidden}
 .dist-bar{height:100%;background:var(--accent);border-radius:99px}
 .dist-pct{font-size:.65rem;color:var(--ink-3);width:2.2rem;text-align:right;flex-shrink:0}
@@ -447,13 +447,11 @@ function badge(score, sm) {
   return `<span class="${cls} badge-${score}">${score}</span>`;
 }
 
-const DIST_LABELS = ['1·Wk','2·Li','3·Gd','4·St','5·Ex'];
-
 function distBars(distribution) {
   if (!distribution || !distribution.length) return '';
   return '<div class="dist-bars">' + distribution.map((p, i) =>
     `<div class="dist-row">
-      <span class="dist-level" title="${SCORE_LABELS[i+1]}">${DIST_LABELS[i]}</span>
+      <span class="dist-level">${SCORE_LABELS[i+1]}</span>
       <div class="dist-bar-wrap"><div class="dist-bar" style="width:${Math.round(p*100)}%"></div></div>
       <span class="dist-pct">${Math.round(p*100)}%</span>
     </div>`
