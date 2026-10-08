@@ -1,0 +1,3 @@
+flask
+typesafe-sdk
+markitdown[pptx]
