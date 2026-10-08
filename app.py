@@ -202,6 +202,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .mobile-breakdown{background:var(--white);border:1px solid var(--accent);border-radius:10px;padding:1rem;margin-bottom:1rem}
 .mbd-header{font-weight:700;font-size:.88rem;margin-bottom:.7rem;color:var(--ink)}
 .mbd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.mbd-cell .dist-level{width:auto;white-space:nowrap;padding-right:.4rem}
+@media(max-width:768px){.mbd-grid{grid-template-columns:1fr}}
 .mbd-cell{background:var(--surface);border-radius:6px;padding:.5rem .6rem;text-align:center}
 .mbd-label{font-size:.65rem;color:var(--ink-3);margin-bottom:.25rem}
 .mbd-conf{font-size:.65rem;color:var(--ink-3);margin-top:.2rem}
