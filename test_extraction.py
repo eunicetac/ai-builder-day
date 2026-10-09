@@ -102,17 +102,38 @@ class PdfExtractionTests(unittest.TestCase):
             page[NameObject("/Contents")] = writer._add_object(content)
         writer.write(path)
 
-    def test_actual_pdf_native_text_scanned_page_and_shared_image(self):
+    def test_pdf_ocr_reads_rendered_pages_without_using_native_text(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "deck.PDF"
             self.make_pdf(path)
-            with patch.object(judge, "ocr_image", return_value="Image words: 99%") as ocr:
+            def render(command, **kwargs):
+                page_number = command[command.index("-f") + 1]
+                self.assertEqual(command[command.index("-l") + 1], page_number)
+                self.assertIn("-singlefile", command)
+                self.assertEqual(command[command.index("-r") + 1], "300")
+                Path(command[-1]).with_suffix(".png").write_bytes(b"rendered page " + page_number.encode())
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+            with patch.object(judge.shutil, "which", return_value="pdftoppm"), \
+                    patch.object(judge.subprocess, "run", side_effect=render), \
+                    patch("pypdf._page.PageObject.extract_text", side_effect=AssertionError("Do not use font codes")), \
+                    patch.object(judge, "ocr_image", side_effect=["Book rooms with locals, rather than hotels.", "Image words: 99%"] ) as ocr:
                 text = judge.extract_deck_content(path)
-            self.assertIn("Native words: 42%", text)
-            self.assertIn("Page 1 — Image 1 (OCR)", text)
-            self.assertIn("Page 2 — Image 1 (OCR)", text)
-            self.assertEqual(text.count("Image words: 99%"), 2)
-            self.assertEqual(ocr.call_count, 1)
+            self.assertNotIn("Native words: 42%", text)
+            self.assertIn("Book rooms with locals, rather than hotels.", text)
+            self.assertIn("Page 1 (OCR)", text)
+            self.assertIn("Page 2 (OCR)", text)
+            self.assertEqual(ocr.call_count, 2)
+            self.assertEqual(ocr.call_args_list[0].args[0], b"rendered page 1")
+            self.assertEqual(ocr.call_args_list[1].args[0], b"rendered page 2")
+
+    def test_pdf_rendering_failure_identifies_page(self):
+        reader = SimpleNamespace(is_encrypted=False, pages=[None])
+        with patch.object(judge, "PdfReader", return_value=reader), \
+                patch.object(judge.shutil, "which", return_value="pdftoppm"), \
+                patch.object(judge.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, "", "bad PDF")):
+            with self.assertRaisesRegex(RuntimeError, "PDF page 1: PDF rendering failed: bad PDF"):
+                judge.extract_pdf_content(Path("bad.pdf"))
 
     def test_password_protected_pdf(self):
         with tempfile.TemporaryDirectory() as directory:

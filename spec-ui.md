@@ -349,7 +349,7 @@ Label: "Extract text". Shows "⏳ Extracting…" while waiting.
 
 **What this shows section** (below button, separated by border-top):
 - Section label "What this shows"
-- Explanatory paragraph: "Native slide or PDF page text plus text recognized in images. Image text is labeled by slide/page and image number. OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text before sending it to jev.ai."
+- Explanatory paragraph: "PPTX slide text and image OCR, or OCR of rendered PDF pages. Text is labeled by slide/image or PDF page number. OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text before sending it to jev.ai."
 
 ### Right panel — text output
 

@@ -16,7 +16,7 @@ rubric decisions.
 | Language | Python 3.11+ |
 | Web framework | Flask |
 | Scoring engine | jev.ai via `typesafe-sdk` pip package |
-| Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR; `pypdf[image]` for PDF text/images |
+| Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR; Poppler for rendered PDF pages; `pypdf` for page count/password checks |
 | Deployment | Railway (from GitHub repo) |
 | Storage | Local filesystem (`results.json`); Railway filesystem is ephemeral |
 
@@ -30,7 +30,7 @@ Pillow
 pypdf[image]
 ```
 
-Tesseract is a system dependency; see README.md. The Dockerfile installs it for deployment.
+Tesseract and Poppler are system dependencies; see README.md. The Dockerfile installs both for deployment.
 
 ---
 
@@ -179,14 +179,20 @@ OCR is best effort and cannot guarantee exact words. Review the extracted text
 before scoring. Layout/master images, vector artwork, overlays, and the final
 rendered slide appearance are outside this extraction path's coverage.
 
-PDF uploads use `pypdf[image]` to extract native text and embedded images on each
-page. Every page is labeled `Page N`, and non-empty image OCR is labeled with
-page/image numbers. Scanned PDFs are supported through embedded-image OCR.
-Repeated images are OCR'd once per extraction while keeping page references.
-Password-protected PDFs must be unlocked before upload; malformed PDFs and
-image/OCR failures return explicit errors. This path does not render pages:
-vector outlines, clipping, overlays, and text reading order may require review.
-Existing OCR layers may duplicate words transcribed from scanned images.
+PDF uploads use `pypdf` to check encryption and page count. Every page is rendered
+by Poppler (`pdftoppm -f N -l N -singlefile -r 300 -png`) and passed to Tesseract.
+Output is labeled `Page N (OCR)`. Native text extraction and separate embedded
+image OCR are not used for PDFs: this avoids scrambled font encodings and
+repeated text from hidden OCR layers. OCR covers the rendered page, including
+visible text, images, and vector artwork, without paraphrasing or correction.
+
+Password-protected PDFs must be unlocked before upload. Missing Poppler,
+malformed PDFs, rendering failures, or OCR failures raise explicit errors;
+page failures include the page number. Pages are processed one at a time with
+temporary images cleaned up after each page, including on failure. Rendering
+and OCR each have a 120-second timeout per page. OCR can misread words or reading
+order; the reviewer checks the editable preview. PDF extraction is slower than
+native text extraction.
 
 The CLI and both upload endpoints accept `.pptx` and `.pdf` case-insensitively.
 Temporary files retain the uploaded extension so extraction selects the proper
@@ -372,7 +378,7 @@ Do not implement this step now.
 ## 10. Deployment (Railway)
 
 1. Push `judge.py`, `app.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
-2. Railway builds the Dockerfile, installing Python dependencies and Tesseract, then starts `app.py`
+2. Railway builds the Dockerfile, installing Python dependencies, Tesseract, and Poppler, then starts `app.py`
    `railway.json` selects the Dockerfile builder and `/` startup healthcheck.
    Keep the service root at the repository root and clear custom build/start commands.
 3. Set environment variables in Railway dashboard:

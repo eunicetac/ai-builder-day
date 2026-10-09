@@ -202,20 +202,22 @@ def extract_pdf_content(pdf_path: Path) -> str:
     reader = PdfReader(pdf_path)
     if reader.is_encrypted and not reader.decrypt(""):
         raise RuntimeError("PDF is password-protected. Upload an unlocked PDF.")
+    if not shutil.which("pdftoppm"):
+        raise RuntimeError("Poppler (pdftoppm) is not installed. See README.md for setup.")
     sections = []
-    cache = {}
-    for page_number, page in enumerate(reader.pages, 1):
+    for page_number in range(1, len(reader.pages) + 1):
         try:
-            text = page.extract_text() or ""
-            sections.append(f"## Page {page_number}\n\n{text}")
-            for image_number, image in enumerate(page.images, 1):
-                key = hashlib.sha256(image.data).hexdigest()
-                if key not in cache:
-                    cache[key] = ocr_image(image.data, (0, 0, 0, 0))
-                if cache[key]:
-                    sections.append(
-                        f"### Page {page_number} — Image {image_number} (OCR)\n\n{cache[key]}"
-                    )
+            with tempfile.TemporaryDirectory() as directory:
+                prefix = Path(directory) / "page"
+                rendered = subprocess.run(
+                    ["pdftoppm", "-f", str(page_number), "-l", str(page_number),
+                     "-singlefile", "-r", "300", "-png", str(pdf_path), str(prefix)],
+                    capture_output=True, text=True, timeout=120,
+                )
+                if rendered.returncode != 0:
+                    raise RuntimeError(f"PDF rendering failed: {rendered.stderr.strip()}")
+                text = ocr_image(prefix.with_suffix(".png").read_bytes(), (0, 0, 0, 0))
+            sections.append(f"## Page {page_number} (OCR)\n\n{text}")
         except Exception as exc:
             raise RuntimeError(f"PDF page {page_number}: {exc}") from exc
     return "\n\n".join(sections)

@@ -440,7 +440,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
         <div class="what-scores" style="margin-top:1rem;padding-top:1rem">
           <div class="what-label">What this shows</div>
           <p style="font-size:.82rem;color:var(--ink-2);line-height:1.5">
-            Native slide or PDF page text plus text recognized in images. Image text is labeled by slide/page and image number.
+            PPTX slide text and image OCR, or OCR of rendered PDF pages. Text is labeled by slide/image or PDF page number.
             OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text
             before sending it to jev.ai.
           </p>
