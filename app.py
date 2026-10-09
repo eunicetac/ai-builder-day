@@ -188,6 +188,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .crit-text{flex:1}
 .crit-name{font-size:.85rem;font-weight:600}
 .crit-anchor{font-size:.72rem;color:var(--ink-3);margin-top:.1rem}
+.crit-borderline{color:#E8750A;font-size:.72rem;font-weight:600;margin-top:.2rem}
 .crit-dist-full{padding-left:2.8rem;margin-top:.35rem}
 .result-footer{border-top:1px solid var(--border);margin-top:1rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--ink-3)}
 .result-flags{color:#E8750A;font-weight:600}
@@ -824,6 +825,7 @@ function renderJudgeResult(result) {
         <div class="crit-text">
           <div class="crit-name">${esc(info.label)}</div>
           <div class="crit-anchor">${anchor}</div>
+          ${c.borderline ? '<div class="crit-borderline">⚠ borderline</div>' : ''}
         </div>
       </div>
       <div class="crit-dist-full">${distBars(c.distribution)}</div>

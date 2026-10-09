@@ -307,6 +307,8 @@ The card shows an editable text panel (`text-edit-panel`) that fills the card:
 
 *Criteria list* (flex column, gap .7rem): one item per criterion:
 - Score badge + label + anchor description ("3 — Good") in a flex row
+- Each criterion with `borderline: true` shows an orange "⚠ borderline" label
+  below its score level. Highlight every flagged criterion independently.
 - Distribution bars below, indented under the text (padding-left 2.8rem)
 
 *Footer* (border-top, flex space-between, 0.75rem, `--ink-3`):
