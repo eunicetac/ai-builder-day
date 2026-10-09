@@ -3,3 +3,4 @@ typesafe-sdk
 markitdown[pptx]
 python-pptx
 Pillow
+pypdf[image]

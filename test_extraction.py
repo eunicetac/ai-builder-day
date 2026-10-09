@@ -1,5 +1,6 @@
 import io
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,6 +10,9 @@ from PIL import Image
 from pptx.oxml import parse_xml
 
 import judge
+import app
+from pypdf import PdfWriter
+from pypdf.generic import DictionaryObject, NameObject, NumberObject, DecodedStreamObject
 
 
 def slide_with_image(blob, crop="", relationship='r:embed="rId1"'):
@@ -71,6 +75,79 @@ class ExtractionTests(unittest.TestCase):
         with patch.object(judge.shutil, "which", return_value="tesseract"), \
                 patch.object(judge.subprocess, "run", side_effect=run):
             self.assertEqual(judge.ocr_image(buffer.getvalue(), (0.25, 0, 0, 0)), "Exact words: 42%")
+
+
+class PdfExtractionTests(unittest.TestCase):
+    def make_pdf(self, path):
+        writer = PdfWriter()
+        font = DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                                 NameObject("/Subtype"): NameObject("/Type1"),
+                                 NameObject("/BaseFont"): NameObject("/Helvetica")})
+        image = DecodedStreamObject()
+        image.set_data(bytes([255, 255, 255] * 4))
+        image.update({NameObject("/Type"): NameObject("/XObject"),
+                      NameObject("/Subtype"): NameObject("/Image"),
+                      NameObject("/Width"): NumberObject(2), NameObject("/Height"): NumberObject(2),
+                      NameObject("/BitsPerComponent"): NumberObject(8),
+                      NameObject("/ColorSpace"): NameObject("/DeviceRGB")})
+        image_reference = writer._add_object(image)
+        for index in range(2):
+            page = writer.add_blank_page(width=300, height=300)
+            page[NameObject("/Resources")] = DictionaryObject({
+                NameObject("/Font"): DictionaryObject({NameObject("/F1"): font}),
+                NameObject("/XObject"): DictionaryObject({NameObject("/Im1"): image_reference})})
+            content = DecodedStreamObject()
+            native = b"BT /F1 12 Tf 10 280 Td (Native words: 42%) Tj ET\n" if index == 0 else b""
+            content.set_data(native + b"q 100 0 0 100 10 10 cm /Im1 Do Q")
+            page[NameObject("/Contents")] = writer._add_object(content)
+        writer.write(path)
+
+    def test_actual_pdf_native_text_scanned_page_and_shared_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "deck.PDF"
+            self.make_pdf(path)
+            with patch.object(judge, "ocr_image", return_value="Image words: 99%") as ocr:
+                text = judge.extract_deck_content(path)
+            self.assertIn("Native words: 42%", text)
+            self.assertIn("Page 1 — Image 1 (OCR)", text)
+            self.assertIn("Page 2 — Image 1 (OCR)", text)
+            self.assertEqual(text.count("Image words: 99%"), 2)
+            self.assertEqual(ocr.call_count, 1)
+
+    def test_password_protected_pdf(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "locked.pdf"
+            writer = PdfWriter()
+            writer.add_blank_page(width=100, height=100)
+            writer.encrypt("secret")
+            writer.write(path)
+            with self.assertRaisesRegex(RuntimeError, "password-protected"):
+                judge.extract_deck_content(path)
+
+    def test_upload_routes_accept_pdf_and_keep_temporary_extension(self):
+        client = app.app.test_client()
+        criteria = {key: {"score": 3} for key in judge.CRITERIA_ORDER}
+        for route in ("/api/extract", "/api/judge"):
+            with patch.object(app, "extract_deck_content", return_value="PDF words") as extract, \
+                    patch.object(app, "score_deck", return_value=criteria), \
+                    patch.object(app, "load_results", return_value=[]), \
+                    patch.object(app, "save_results"):
+                response = client.post(route, data={"file": (io.BytesIO(b"pdf"), "Alpha.PDF")})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(extract.call_args.args[0].suffix, ".pdf")
+            if route == "/api/judge":
+                self.assertEqual(response.json["file"], "Alpha.PDF")
+                self.assertEqual(response.json["team"], "Alpha")
+                self.assertEqual(response.json["weighted_score"], 24)
+            response = client.post(route, data={"file": (io.BytesIO(b"bad"), "bad.txt")})
+            self.assertEqual(response.status_code, 400)
+
+    def test_mixed_cli_discovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("one.pptx", "two.PDF", "ignored.txt"):
+                (root / name).touch()
+            self.assertEqual({path.name for team, path in judge.discover_pairs(root)}, {"one.pptx", "two.PDF"})
 
 
 if __name__ == "__main__":

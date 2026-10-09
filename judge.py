@@ -15,6 +15,7 @@ from typesafe_sdk import Score, TypeSafeClient
 from PIL import Image, ImageOps
 from pptx import Presentation
 from pptx.oxml.ns import qn
+from pypdf import PdfReader
 
 COMMON_INSTRUCTIONS = (
     "The Product Thinking AI Judge assesses the quality of product thinking demonstrated in a team's "
@@ -177,9 +178,14 @@ CRITERIA = {
 CRITERIA_ORDER = ["problem_and_user", "problem_understanding", "outcomes", "test_and_learn"]
 
 SCORE_LABELS = {1: "Weak", 2: "Limited", 3: "Good", 4: "Strong", 5: "Excellent"}
+SUPPORTED_EXTENSIONS = {".pptx", ".pdf"}
 
 
 def extract_deck_content(pptx_path: Path) -> str:
+    if pptx_path.suffix.lower() == ".pdf":
+        return extract_pdf_content(pptx_path)
+    if pptx_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise ValueError("File must be a .pptx or .pdf")
     result = subprocess.run(
         ["markitdown", str(pptx_path)],
         capture_output=True,
@@ -190,6 +196,29 @@ def extract_deck_content(pptx_path: Path) -> str:
     native_text = result.stdout.strip()
     image_text = extract_image_text(pptx_path)
     return "\n\n".join(part for part in (native_text, image_text) if part)
+
+
+def extract_pdf_content(pdf_path: Path) -> str:
+    reader = PdfReader(pdf_path)
+    if reader.is_encrypted and not reader.decrypt(""):
+        raise RuntimeError("PDF is password-protected. Upload an unlocked PDF.")
+    sections = []
+    cache = {}
+    for page_number, page in enumerate(reader.pages, 1):
+        try:
+            text = page.extract_text() or ""
+            sections.append(f"## Page {page_number}\n\n{text}")
+            for image_number, image in enumerate(page.images, 1):
+                key = hashlib.sha256(image.data).hexdigest()
+                if key not in cache:
+                    cache[key] = ocr_image(image.data, (0, 0, 0, 0))
+                if cache[key]:
+                    sections.append(
+                        f"### Page {page_number} — Image {image_number} (OCR)\n\n{cache[key]}"
+                    )
+        except Exception as exc:
+            raise RuntimeError(f"PDF page {page_number}: {exc}") from exc
+    return "\n\n".join(sections)
 
 
 def extract_image_text(pptx_path: Path) -> str:
@@ -359,25 +388,27 @@ def discover_pairs(root: Path) -> list[tuple[str, Path]]:
     subdirs = [p for p in root.iterdir() if p.is_dir()]
     if subdirs:
         for subdir in subdirs:
-            pptx_files = list(subdir.glob("*.pptx"))
+            pptx_files = [p for p in subdir.iterdir() if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS]
             for pptx in pptx_files:
                 pairs.append((subdir.name, pptx))
     else:
-        for pptx in root.glob("*.pptx"):
+        for pptx in root.iterdir():
+            if not pptx.is_file() or pptx.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
             pairs.append((pptx.stem, pptx))
     return pairs
 
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python judge.py <path-to-file.pptx>  or  python judge.py <path-to-folder>")
+        print("Usage: python judge.py <path-to-file.pptx-or-pdf>  or  python judge.py <path-to-folder>")
         sys.exit(1)
 
     target = Path(sys.argv[1])
 
     if target.is_file():
-        if target.suffix.lower() != ".pptx":
-            print(f"Error: {target} is not a .pptx file")
+        if target.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            print(f"Error: {target} is not a .pptx or .pdf file")
             sys.exit(1)
         results = load_results()
         result = judge_file(target, target.stem)
@@ -389,7 +420,7 @@ def main():
     elif target.is_dir():
         pairs = discover_pairs(target)
         if not pairs:
-            print(f"No .pptx files found in {target}")
+            print(f"No .pptx or .pdf files found in {target}")
             sys.exit(1)
 
         results = load_results()

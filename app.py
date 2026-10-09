@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template_string, request
 
-from judge import CRITERIA_ORDER, extract_deck_content, score_deck
+from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, score_deck
 
 app = Flask(__name__)
 
@@ -400,10 +400,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <input type="text" id="team-input" class="team-input" placeholder="e.g. Team Alpha">
         </div>
         <div class="upload-zone" id="upload-zone">
-          <input type="file" id="file-input" accept=".pptx">
+          <input type="file" id="file-input" accept=".pptx,.pdf">
           <div class="upload-icon">📂</div>
-          <div class="upload-label" id="upload-label">Drop a .pptx file here, or click to browse</div>
-          <div class="upload-hint">.pptx files only — slide and image text is extracted automatically</div>
+          <div class="upload-label" id="upload-label">Drop a .pptx or .pdf file here, or click to browse</div>
+          <div class="upload-hint">.pptx and .pdf files only — slide/page and image text is extracted automatically</div>
         </div>
         <button class="judge-btn" id="judge-btn" disabled>Extract text</button>
         <div class="what-scores">
@@ -431,16 +431,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
       <!-- Left: Upload -->
       <div class="upload-card">
         <div class="upload-zone" id="preview-upload-zone">
-          <input type="file" id="preview-file-input" accept=".pptx">
+          <input type="file" id="preview-file-input" accept=".pptx,.pdf">
           <div class="upload-icon">📂</div>
-          <div class="upload-label" id="preview-upload-label">Drop a .pptx file here, or click to browse</div>
-          <div class="upload-hint">.pptx files only</div>
+          <div class="upload-label" id="preview-upload-label">Drop a .pptx or .pdf file here, or click to browse</div>
+          <div class="upload-hint">.pptx and .pdf files only</div>
         </div>
         <button class="extract-btn" id="extract-btn" disabled>Extract text</button>
         <div class="what-scores" style="margin-top:1rem;padding-top:1rem">
           <div class="what-label">What this shows</div>
           <p style="font-size:.82rem;color:var(--ink-2);line-height:1.5">
-            Native slide text plus text recognized in images. Image text is labeled by slide and image number.
+            Native slide or PDF page text plus text recognized in images. Image text is labeled by slide/page and image number.
             OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text
             before sending it to jev.ai.
           </p>
@@ -448,7 +448,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
       </div>
       <!-- Right: Extracted text -->
       <div class="text-card" id="text-card">
-        <div class="text-empty">Upload a .pptx to see its extracted text</div>
+        <div class="text-empty">Upload a .pptx or .pdf to see its extracted text</div>
       </div>
     </div>
   </div>
@@ -478,7 +478,7 @@ const topbarMeta = document.getElementById('topbar-meta');
 const TOPBAR = {
   criteria: {title:"Criteria", meta:"PC8 Product Thinking rubric · 40 points total"},
   results: {title:"Results", meta:""},
-  judge: {title:"Judge a deck", meta:"Upload a .pptx to score it live"},
+  judge: {title:"Judge a deck", meta:"Upload a .pptx or .pdf to score it live"},
   preview: {title:"Text preview", meta:"See how slide text is extracted before scoring"},
 };
 
@@ -720,7 +720,7 @@ uploadZone.addEventListener('drop', e => {
   e.preventDefault();
   uploadZone.classList.remove('dragover');
   const f = e.dataTransfer.files[0];
-  if (f && f.name.endsWith('.pptx')) setFile(f);
+  if (f && /\.(pptx|pdf)$/i.test(f.name)) setFile(f);
 });
 
 fileInput.addEventListener('change', () => {
@@ -731,13 +731,13 @@ function setFile(f) {
   selectedFile = f;
   uploadLabel.innerHTML = `<span class="upload-filename">${esc(f.name)}</span>`;
   if (!teamInput.value.trim()) {
-    teamInput.value = f.name.replace(/\.pptx$/i, '');
+    teamInput.value = f.name.replace(/\.(pptx|pdf)$/i, '');
   }
   judgeBtn.disabled = false;
   judgeBtn.textContent = 'Extract text';
 }
 
-// Step 1: Extract text from pptx
+// Step 1: Extract text from PPTX or PDF
 judgeBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
   judgeBtn.disabled = true;
@@ -796,7 +796,7 @@ async function judgeText(text) {
   judgeBtn.disabled = true;
   resultPanel.innerHTML = '<div class="result-empty" role="status"><div>Judging — this takes about 30 seconds…</div></div>';
 
-  const team = teamInput.value.trim() || selectedFile.name.replace(/\.pptx$/i, '');
+  const team = teamInput.value.trim() || selectedFile.name.replace(/\.(pptx|pdf)$/i, '');
   const form = new FormData();
   form.append('text', text);
   form.append('team', team);
@@ -872,7 +872,7 @@ previewUploadZone.addEventListener('drop', e => {
   e.preventDefault();
   previewUploadZone.classList.remove('dragover');
   const f = e.dataTransfer.files[0];
-  if (f && f.name.endsWith('.pptx')) setPreviewFile(f);
+  if (f && /\.(pptx|pdf)$/i.test(f.name)) setPreviewFile(f);
 });
 
 previewFileInput.addEventListener('change', () => {
@@ -955,15 +955,15 @@ def api_judge():
         return jsonify({"error": "No file uploaded"}), 400
 
     uploaded = request.files["file"]
-    if not uploaded.filename.endswith(".pptx"):
-        return jsonify({"error": "File must be a .pptx"}), 400
+    if Path(uploaded.filename or "").suffix.lower() not in SUPPORTED_EXTENSIONS:
+        return jsonify({"error": "File must be a .pptx or .pdf"}), 400
 
     team = request.form.get("team", "").strip() or Path(uploaded.filename).stem
     filename = uploaded.filename
 
     tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=Path(uploaded.filename).suffix.lower(), delete=False) as tmp:
             tmp_path = Path(tmp.name)
             uploaded.save(tmp_path)
 
@@ -1034,12 +1034,12 @@ def api_extract():
         return jsonify({"error": "No file uploaded"}), 400
 
     uploaded = request.files["file"]
-    if not uploaded.filename.endswith(".pptx"):
-        return jsonify({"error": "File must be a .pptx"}), 400
+    if Path(uploaded.filename or "").suffix.lower() not in SUPPORTED_EXTENSIONS:
+        return jsonify({"error": "File must be a .pptx or .pdf"}), 400
 
     tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=Path(uploaded.filename).suffix.lower(), delete=False) as tmp:
             tmp_path = Path(tmp.name)
             uploaded.save(tmp_path)
 

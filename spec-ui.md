@@ -256,7 +256,7 @@ inserted after the selected `.mlb-card` in the card list.
 
 ## 5. Page: Judge a deck
 
-**Topbar:** "Judge a deck" | "Upload a .pptx to score it live"
+**Topbar:** "Judge a deck" | "Upload a .pptx or .pdf to score it live"
 
 Two-column layout (1fr 1fr, gap 1.5rem, align-items start). Single column on mobile.
 
@@ -271,8 +271,8 @@ Auto-filled from filename stem when a file is selected (if the field is still em
 - Border: 2px dashed `--border`, border-radius 8px, padding 2.5rem 1.5rem, text-align center, cursor pointer
 - Hover/dragover: border-color `--accent`, background #f6f7ff
 - Icon: 📂 (2rem)
-- Label: "Drop a .pptx file here, or click to browse" (0.88rem, `--ink-2`)
-- Hint: ".pptx files only — slide and image text is extracted automatically" (0.75rem, `--ink-3`)
+- Label: "Drop a .pptx or .pdf file here, or click to browse" (0.88rem, `--ink-2`)
+- Hint: ".pptx and .pdf files only — slide/page and image text is extracted automatically" (0.75rem, `--ink-3`)
 - On file selected: replace label with the filename in `--accent`
 
 **Extract text button:** below upload zone, background `--ink`, white text, border-radius 7px,
@@ -341,7 +341,7 @@ Two-column layout (280px left, 1fr right, gap 1.5rem, align-items start). Single
 White card (`.upload-card`), border `--border`, border-radius 10px, padding 1.5rem.
 
 **Upload zone:** same style as Judge page upload zone.
-- Hint: ".pptx files only"
+- Hint: ".pptx and .pdf files only"
 - On file selected: replace label with filename in `--accent`
 
 **Extract text button:** below upload zone, same style as Judge page extract button.
@@ -349,13 +349,13 @@ Label: "Extract text". Shows "⏳ Extracting…" while waiting.
 
 **What this shows section** (below button, separated by border-top):
 - Section label "What this shows"
-- Explanatory paragraph: "Native slide text plus text recognized in images. Image text is labeled by slide and image number. OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text before sending it to jev.ai."
+- Explanatory paragraph: "Native slide or PDF page text plus text recognized in images. Image text is labeled by slide/page and image number. OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text before sending it to jev.ai."
 
 ### Right panel — text output
 
 White card (`.text-card`), border `--border`, border-radius 10px, `display:flex`, `flex-direction:column`, `min-height:400px`.
 
-**Empty state:** centered `--ink-3` text "Upload a .pptx to see its extracted text"
+**Empty state:** centered `--ink-3` text "Upload a .pptx or .pdf to see its extracted text"
 
 **Populated state** (after extraction):
 - **Header** (`.text-card-header`, border-bottom `--border`): filename (weight 600, 0.82rem) + char/word count (0.72rem, `--ink-3`)

@@ -16,7 +16,7 @@ rubric decisions.
 | Language | Python 3.11+ |
 | Web framework | Flask |
 | Scoring engine | jev.ai via `typesafe-sdk` pip package |
-| Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR |
+| Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR; `pypdf[image]` for PDF text/images |
 | Deployment | Railway (from GitHub repo) |
 | Storage | Local filesystem (`results.json`); Railway filesystem is ephemeral |
 
@@ -27,6 +27,7 @@ typesafe-sdk
 markitdown[pptx]
 python-pptx
 Pillow
+pypdf[image]
 ```
 
 Tesseract is a system dependency; see README.md. The Dockerfile installs it for deployment.
@@ -178,6 +179,19 @@ OCR is best effort and cannot guarantee exact words. Review the extracted text
 before scoring. Layout/master images, vector artwork, overlays, and the final
 rendered slide appearance are outside this extraction path's coverage.
 
+PDF uploads use `pypdf[image]` to extract native text and embedded images on each
+page. Every page is labeled `Page N`, and non-empty image OCR is labeled with
+page/image numbers. Scanned PDFs are supported through embedded-image OCR.
+Repeated images are OCR'd once per extraction while keeping page references.
+Password-protected PDFs must be unlocked before upload; malformed PDFs and
+image/OCR failures return explicit errors. This path does not render pages:
+vector outlines, clipping, overlays, and text reading order may require review.
+Existing OCR layers may duplicate words transcribed from scanned images.
+
+The CLI and both upload endpoints accept `.pptx` and `.pdf` case-insensitively.
+Temporary files retain the uploaded extension so extraction selects the proper
+format. Folder discovery accepts both formats under the same team naming rules.
+
 In CLI mode and `/api/judge`, the extracted text is passed directly as the
 `state` string to jev.ai. Do not automatically pre-process, truncate, or
 summarise the extracted text.
@@ -195,12 +209,12 @@ which may differ from text edited on the Judge page.
 
 ### Usage
 ```
-python judge.py <path-to-file.pptx>      # judge one deck
+python judge.py <path-to-file.pptx-or-pdf>      # judge one deck
 python judge.py <path-to-folder>          # batch judge all teams
 ```
 
 ### Single file mode
-1. Extract text from the `.pptx`
+1. Extract text from the `.pptx` or `.pdf`
 2. Score via jev.ai
 3. Build result object with team name derived from `pptx_path.stem`
 4. Load existing `results.json` (empty list if not found)
@@ -221,11 +235,11 @@ submissions/
 ```
 
 Each direct subfolder = one team. The subfolder name becomes the `team` field.
-If `.pptx` files exist directly in root (no subfolders), use the filename stem as team name.
-If a subfolder contains multiple `.pptx` files, judge each one separately.
+If `.pptx` or `.pdf` files exist directly in root (no subfolders), use the filename stem as team name.
+If a subfolder contains multiple supported files, judge each one separately.
 
 **Processing:**
-1. Discover all `(team_name, pptx_path)` pairs
+1. Discover all `(team_name, pptx_path)` pairs for `.pptx` and `.pdf` files
 2. Load existing `results.json`
 3. For each pair, skip if `pptx_path.name` already in results
 4. Judge, append result, write `results.json` immediately after each team
@@ -281,7 +295,7 @@ Accepts multipart form upload with field name `file`.
 
 Validation:
 - File must be present → 400 if missing
-- File must have `.pptx` extension → 400 if not
+- File must have `.pptx` or `.pdf` extension (case-insensitive) → 400 if not
 
 Processing:
 1. Save uploaded file to a temp path
@@ -308,7 +322,7 @@ Accepts multipart form upload with field name `file`.
 
 Validation:
 - File must be present → 400 if missing
-- File must have `.pptx` extension → 400 if not
+- File must have `.pptx` or `.pdf` extension (case-insensitive) → 400 if not
 
 Processing:
 1. Save uploaded file to a temp path

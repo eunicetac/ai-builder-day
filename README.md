@@ -1,8 +1,8 @@
 # ai-builder-day
 
-Extracts native PPTX text with MarkItDown and transcribes embedded slide images
+Extracts native PPTX text with MarkItDown and PDF text with pypdf and transcribes embedded slide images
 with Tesseract OCR. Both the CLI and web extraction use this combined output.
-Image text is labeled with slide and image numbers, without summarizing it.
+Image text is labeled with slide/page and image numbers, without summarizing it.
 
 Install Python dependencies with `pip install -r requirements.txt`.
 Install Tesseract locally with `brew install tesseract` (macOS) or
@@ -21,7 +21,7 @@ In Railway service Variables, set `TYPESAFE_API_KEY` to your jev.ai key.
 the app listens on `0.0.0.0` and Railway's `PORT` automatically.
 Clear any custom Build or Start Command so Railway uses the Dockerfile's
 build steps and `python app.py` command. Generate a public domain under
-Settings → Networking, then upload a PPTX on Text preview to check OCR.
+Settings → Networking, then upload a PPTX or PDF on Text preview to check OCR.
 
 The OCR changes and deployment files must be committed and pushed before
 Railway can build them. Results use the container filesystem and are lost
@@ -36,3 +36,9 @@ Extraction covers embedded raster images in slides, groups, picture fills, and
 slide backgrounds. It does not render slides: image text inherited from layouts
 or masters, vector artwork, and text covered by other shapes are not reliably
 handled. Linked images and unsupported image formats produce an explicit error.
+
+PDF files use the same upload, editable preview, judging, results, and CLI flows
+as PPTX files. Scanned pages and embedded images are OCR'd. Password-protected
+PDFs must be unlocked first. Native PDF text and OCR are kept separately with
+page references; existing OCR layers may duplicate image text. PDF pages are
+not rendered, so image clipping/overlays and vector outlines are not handled.
