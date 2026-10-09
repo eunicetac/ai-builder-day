@@ -165,6 +165,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .result-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:1.5rem}
 .result-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--ink-3);gap:.5rem;text-align:center}
 .result-empty-icon{font-size:1.5rem}
+
+/* Text edit panel (inside result-card) */
+.text-edit-panel{display:flex;flex-direction:column;margin:-1.5rem;height:calc(100% + 3rem);min-height:420px}
+.text-edit-header{padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.text-edit-title{font-size:.82rem;font-weight:600}
+.text-edit-meta{font-size:.72rem;color:var(--ink-3)}
+.text-edit-area{flex:1;padding:1rem;font-family:'SF Mono',Menlo,Monaco,'Courier New',monospace;font-size:.75rem;line-height:1.6;color:var(--ink-2);border:none;outline:none;resize:none;background:transparent;min-height:300px;max-height:55vh;overflow-y:auto}
+.text-edit-footer{padding:.75rem 1rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:.5rem}
+.text-edit-hint{font-size:.72rem;color:var(--ink-3)}
+.judge-text-btn{padding:.5rem 1.1rem;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;flex-shrink:0}
+.judge-text-btn:disabled{opacity:.4;cursor:not-allowed}
 .result-header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1.2rem}
 .result-filename{font-weight:700;font-size:.9rem}
 .result-team{font-size:.78rem;color:var(--ink-3);margin-top:.15rem}
@@ -209,6 +220,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .mbd-label{font-size:.65rem;color:var(--ink-3);margin-bottom:.25rem}
 .mbd-conf{font-size:.65rem;color:var(--ink-3);margin-top:.2rem}
 .mbd-bl{font-size:.62rem;color:#E8750A;margin-top:.15rem}
+
+/* Text preview page */
+.preview-layout{display:grid;grid-template-columns:280px 1fr;gap:1.5rem;align-items:start}
+.extract-btn{display:block;width:100%;margin-top:1rem;padding:.6rem 1.2rem;background:var(--ink);color:#fff;border:none;border-radius:7px;font-size:.85rem;font-weight:600;cursor:pointer}
+.extract-btn:disabled{opacity:.4;cursor:not-allowed}
+.text-card{background:var(--white);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;min-height:400px}
+.text-card-header{padding:.75rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.text-card-title{font-size:.82rem;font-weight:600}
+.text-card-meta{font-size:.72rem;color:var(--ink-3)}
+.text-output{flex:1;padding:1rem;font-family:'SF Mono',Menlo,Monaco,'Courier New',monospace;font-size:.75rem;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;overflow-y:auto;max-height:70vh}
+.text-empty{display:flex;align-items:center;justify-content:center;flex:1;color:var(--ink-3);font-size:.85rem;padding:2rem;text-align:center}
+@media(max-width:768px){.preview-layout{grid-template-columns:1fr}}
 
 /* Mobile bottom nav */
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--ink);border-top:1px solid rgba(255,255,255,.1);z-index:200}
@@ -259,6 +282,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     <a href="#" class="active" data-page="criteria">◎ Criteria</a>
     <a href="#" data-page="results">◈ Results</a>
     <a href="#" data-page="judge">⊕ Judge a deck</a>
+    <a href="#" data-page="preview">≡ Text preview</a>
   </div>
   <div class="sb-footer">
     Scoring via jev.ai<br>
@@ -380,7 +404,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <div class="upload-label" id="upload-label">Drop a .pptx file here, or click to browse</div>
           <div class="upload-hint">.pptx files only — slide text is extracted automatically</div>
         </div>
-        <button class="judge-btn" id="judge-btn" disabled>Judge deck</button>
+        <button class="judge-btn" id="judge-btn" disabled>Extract text</button>
         <div class="what-scores">
           <div class="what-label">What this scores</div>
           <div class="what-row"><span class="what-abbrev">P&amp;U</span> How clearly the submission establishes who has the problem, what it is, and why it matters.</div>
@@ -399,12 +423,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
       </div>
     </div>
   </div>
+
+  <!-- ========================== PAGE: TEXT PREVIEW ========================== -->
+  <div class="content page" id="page-preview">
+    <div class="preview-layout">
+      <!-- Left: Upload -->
+      <div class="upload-card">
+        <div class="upload-zone" id="preview-upload-zone">
+          <input type="file" id="preview-file-input" accept=".pptx">
+          <div class="upload-icon">📂</div>
+          <div class="upload-label" id="preview-upload-label">Drop a .pptx file here, or click to browse</div>
+          <div class="upload-hint">.pptx files only</div>
+        </div>
+        <button class="extract-btn" id="extract-btn" disabled>Extract text</button>
+        <div class="what-scores" style="margin-top:1rem;padding-top:1rem">
+          <div class="what-label">What this shows</div>
+          <p style="font-size:.82rem;color:var(--ink-2);line-height:1.5">
+            The raw markdown text extracted from the slide deck by
+            <code>markitdown</code>. Use this to verify that slide content is being read correctly.
+            On Judge a deck, you can edit this text before sending it to jev.ai for scoring.
+          </p>
+        </div>
+      </div>
+      <!-- Right: Extracted text -->
+      <div class="text-card" id="text-card">
+        <div class="text-empty">Upload a .pptx to see its extracted text</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <nav class="mobile-nav" id="mobile-nav">
   <a href="#" data-page="criteria" class="active"><span class="mobile-nav-icon">◎</span>Criteria</a>
   <a href="#" data-page="results"><span class="mobile-nav-icon">◈</span>Results</a>
   <a href="#" data-page="judge"><span class="mobile-nav-icon">⊕</span>Judge</a>
+  <a href="#" data-page="preview"><span class="mobile-nav-icon">≡</span>Preview</a>
 </nav>
 
 <script>
@@ -425,6 +478,7 @@ const TOPBAR = {
   criteria: {title:"Criteria", meta:"PC8 Product Thinking rubric · 40 points total"},
   results: {title:"Results", meta:""},
   judge: {title:"Judge a deck", meta:"Upload a .pptx to score it live"},
+  preview: {title:"Text preview", meta:"See how slide text is extracted before scoring"},
 };
 
 function navigate(page) {
@@ -679,21 +733,76 @@ function setFile(f) {
     teamInput.value = f.name.replace(/\.pptx$/i, '');
   }
   judgeBtn.disabled = false;
+  judgeBtn.textContent = 'Extract text';
 }
 
+// Step 1: Extract text from pptx
 judgeBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
   judgeBtn.disabled = true;
-  judgeBtn.textContent = '⏳ Judging…';
-  resultPanel.innerHTML = '<div class="result-empty"><div>Judging — this takes about 30 seconds…</div></div>';
+  judgeBtn.textContent = '⏳ Extracting…';
+  resultPanel.innerHTML = '<div class="result-empty"><div>Extracting slide text…</div></div>';
 
   const form = new FormData();
   form.append('file', selectedFile);
-  const team = teamInput.value.trim() || selectedFile.name.replace(/\.pptx$/i, '');
-  form.append('team', team);
 
   try {
-    const resp = await fetch('/api/judge', { method: 'POST', body: form });
+    const resp = await fetch('/api/extract', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    renderTextEditor(data.text);
+  } catch (err) {
+    resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
+    judgeBtn.disabled = false;
+    judgeBtn.textContent = 'Extract text';
+  }
+});
+
+function renderTextEditor(text) {
+  judgeBtn.disabled = false;
+  judgeBtn.textContent = 'Extract text';
+
+  const charCount = text.length.toLocaleString();
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length.toLocaleString() : '0';
+
+  resultPanel.innerHTML = `
+    <div class="text-edit-panel">
+      <div class="text-edit-header">
+        <span class="text-edit-title">${esc(selectedFile.name)}</span>
+        <span class="text-edit-meta" id="edit-meta">${charCount} chars · ${wordCount} words</span>
+      </div>
+      <textarea class="text-edit-area" id="edit-textarea" spellcheck="false">${esc(text)}</textarea>
+      <div class="text-edit-footer">
+        <span class="text-edit-hint">Edit the text above if needed, then judge it.</span>
+        <button class="judge-text-btn" id="judge-text-btn">Judge this text →</button>
+      </div>
+    </div>`;
+
+  const textarea = document.getElementById('edit-textarea');
+  const metaEl = document.getElementById('edit-meta');
+  textarea.addEventListener('input', () => {
+    const t = textarea.value;
+    const c = t.length.toLocaleString();
+    const w = t.trim() ? t.trim().split(/\s+/).length.toLocaleString() : '0';
+    metaEl.textContent = `${c} chars · ${w} words`;
+  });
+
+  document.getElementById('judge-text-btn').addEventListener('click', () => judgeText(textarea.value));
+}
+
+// Step 2: Judge the (possibly edited) text
+async function judgeText(text) {
+  judgeBtn.disabled = true;
+  resultPanel.innerHTML = '<div class="result-empty" role="status"><div>Judging — this takes about 30 seconds…</div></div>';
+
+  const team = teamInput.value.trim() || selectedFile.name.replace(/\.pptx$/i, '');
+  const form = new FormData();
+  form.append('text', text);
+  form.append('team', team);
+  form.append('filename', selectedFile.name);
+
+  try {
+    const resp = await fetch('/api/judge-text', { method: 'POST', body: form });
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     renderJudgeResult(data);
@@ -701,9 +810,8 @@ judgeBtn.addEventListener('click', async () => {
     resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
   } finally {
     judgeBtn.disabled = false;
-    judgeBtn.textContent = 'Judge deck';
   }
-});
+}
 
 function renderJudgeResult(result) {
   const critRows = CRITERIA_ORDER.map(k => {
@@ -745,6 +853,66 @@ function renderJudgeResult(result) {
     </div>
     <button class="see-results-btn" onclick="navigate('results')">◈ View leaderboard →</button>`;
 }
+
+// --- Text preview page ---
+const previewUploadZone = document.getElementById('preview-upload-zone');
+const previewFileInput = document.getElementById('preview-file-input');
+const previewUploadLabel = document.getElementById('preview-upload-label');
+const extractBtn = document.getElementById('extract-btn');
+const textCard = document.getElementById('text-card');
+
+let previewFile = null;
+
+previewUploadZone.addEventListener('click', () => previewFileInput.click());
+previewUploadZone.addEventListener('dragover', e => { e.preventDefault(); previewUploadZone.classList.add('dragover'); });
+previewUploadZone.addEventListener('dragleave', () => previewUploadZone.classList.remove('dragover'));
+previewUploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  previewUploadZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.pptx')) setPreviewFile(f);
+});
+
+previewFileInput.addEventListener('change', () => {
+  if (previewFileInput.files[0]) setPreviewFile(previewFileInput.files[0]);
+});
+
+function setPreviewFile(f) {
+  previewFile = f;
+  previewUploadLabel.innerHTML = `<span class="upload-filename">${esc(f.name)}</span>`;
+  extractBtn.disabled = false;
+  textCard.innerHTML = '<div class="text-empty">Press "Extract text" to see the extracted content</div>';
+}
+
+extractBtn.addEventListener('click', async () => {
+  if (!previewFile) return;
+  extractBtn.disabled = true;
+  extractBtn.textContent = '⏳ Extracting…';
+  textCard.innerHTML = '<div class="text-empty">Extracting text…</div>';
+
+  const form = new FormData();
+  form.append('file', previewFile);
+
+  try {
+    const resp = await fetch('/api/extract', { method: 'POST', body: form });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    const text = data.text || '';
+    const charCount = text.length.toLocaleString();
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length.toLocaleString() : '0';
+    textCard.innerHTML = `
+      <div class="text-card-header">
+        <span class="text-card-title">${esc(previewFile.name)}</span>
+        <span class="text-card-meta">${charCount} chars · ${wordCount} words</span>
+      </div>
+      <div class="text-output">${esc(text)}</div>`;
+  } catch (err) {
+    textCard.innerHTML = `<div class="text-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
+  } finally {
+    extractBtn.disabled = false;
+    extractBtn.textContent = 'Extract text';
+  }
+});
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -827,6 +995,59 @@ def api_judge():
 @app.route("/api/results")
 def api_results():
     return jsonify(load_results())
+
+
+@app.route("/api/judge-text", methods=["POST"])
+def api_judge_text():
+    text = request.form.get("text", "")
+    team = request.form.get("team", "").strip() or "Unknown"
+    filename = request.form.get("filename", "unknown.pptx")
+
+    if not text.strip():
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        criteria = score_deck(text)
+        raw_total = sum(criteria[k]["score"] for k in CRITERIA_ORDER)
+        weighted_score = (raw_total / 20) * 40
+        result = {
+            "team": team,
+            "file": filename,
+            "judged_at": datetime.now(timezone.utc).isoformat(),
+            "raw_total": raw_total,
+            "weighted_score": weighted_score,
+            "criteria": criteria,
+        }
+        results = load_results()
+        results = upsert_result(results, result)
+        save_results(results)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/extract", methods=["POST"])
+def api_extract():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    uploaded = request.files["file"]
+    if not uploaded.filename.endswith(".pptx"):
+        return jsonify({"error": "File must be a .pptx"}), 400
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+            uploaded.save(tmp_path)
+
+        text = extract_deck_content(tmp_path)
+        return jsonify({"text": text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink()
 
 
 if __name__ == "__main__":

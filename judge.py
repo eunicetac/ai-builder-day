@@ -9,26 +9,69 @@ from pathlib import Path
 
 from typesafe_sdk import Score, TypeSafeClient
 
+COMMON_INSTRUCTIONS = (
+    "The Product Thinking AI Judge assesses the quality of product thinking demonstrated in a team's "
+    'submitted slide deck. It is a decision-support mechanism for human judges. Human judges retain '
+    'the final decision on scoring and winners. The judge does not assess: - technical '
+    'sophistication of the solution; - quality of implementation; - quality of the demo; - novelty '
+    'or complexity of the AI; - slide aesthetics or graphic design; - writing/storytelling polish; - '
+    'grammar or presentation style. Those aspects must not influence the Product Thinking score. '
+    'Presentation quality matters only where the deck is genuinely too unclear to determine what '
+    'product-thinking evidence is being presented. An impressive AI solution must not compensate for '
+    'weak product thinking. The Demo Judge is a separate judge.  3.1 Score only what the submission '
+    'demonstrates The judge must not infer undocumented product-thinking work or give teams credit '
+    'for what they probably did. 3.2 Closed-book assessment Use only the submitted slide deck. Do '
+    'not use: - web searches; - external domain knowledge; - prior submissions; - information about '
+    "the team or project; - other teams' submissions; - assumptions based on outside knowledge. 3.3 "
+    'Accept factual claims at face value If the deck states that the team interviewed users, '
+    'observed a process, measured a duration, obtained a test result, etc., accept that factual '
+    "claim as presented. The judge's role is not to verify whether the evidence is true. Its role is "
+    'to assess whether the evidence and reasoning presented demonstrate good product thinking. 3.4 '
+    'Judge reasoning, not vocabulary Credit product thinking that is clearly demonstrated even if '
+    'teams do not explicitly use terms such as: - root cause; - hypothesis; - outcome; - assumption; '
+    '- discovery; - MVP. Do not reward terminology itself. 3.5 Assess quality, not checklist '
+    'compliance The judge assesses the quality of product thinking itself, not whether teams have '
+    'performed or mentioned expected product-management activities. Having interviews, tests, '
+    'personas, Five Whys, journey maps, etc. does not automatically imply strong product thinking. '
+    '3.6 Aggregate evidence across the entire deck Relevant evidence may appear anywhere in the '
+    'submitted deck. Do not expect evidence to appear on a prescribed slide. 3.7 Evidence may '
+    'support multiple criteria The same evidence may legitimately support more than one criterion '
+    'when it genuinely demonstrates both. However, assess what that evidence demonstrates separately '
+    'through the lens of each criterion. 3.8 Quality over quantity Do not reward research or '
+    'evidence simply because there is more of it. Given the short Builder Day timeframe, one strong, '
+    'relevant piece of evidence can be sufficient to support a score of 5. 3.9 Score criteria '
+    'independently A weakness in one criterion must not mechanically suppress another. For example, '
+    'a legitimate profile could be: • Problem & User: 2 • Problem Understanding: 4 • Outcomes: 4 • '
+    'Test & Learn: 1 Do not double-penalise the same weakness across criteria unless it '
+    'independently affects each criterion. 3.10 Absolute rather than comparative scoring Each '
+    'submission is scored against the rubric, without seeing or comparing it with other teams. Do '
+    'not: - rank submissions; - curve scores; - establish a cohort benchmark; - reserve 5s for the '
+    'best teams. A score of 5 means the submission best fits the defined 5 anchor.  Use a five-level '
+    'holistic best-fit rubric. For each criterion: 1. read all relevant evidence across the deck; 2. '
+    'compare the overall evidence against all five anchors; 3. select the single anchor that best '
+    'describes what is demonstrated. Do not: - start at 5 and deduct points; - count checklist '
+    'items; - calculate hidden sub-scores; - mathematically average sub-elements. Always return one '
+    'integer from 1--5. Do not return: - 3.5; - 3--4; - confidence-adjusted scores. If genuinely '
+    'borderline, choose the best-fit integer and say so in the rationale, for example: Score 3 --- '
+    'Borderline 4. The submission demonstrates X strongly, but Y is not sufficiently demonstrated to '
+    'meet the 4 anchor.  Where the deck contains materially contradictory claims: 1. identify the '
+    'conflicting claims; 2. do not invent a reconciliation; 3. avoid relying on the disputed fact '
+    'where it materially affects scoring; 4. score using the remaining coherent evidence; 5. raise a '
+    'Reviewer Flag identifying the contradiction. External knowledge must not be used to resolve the '
+    'contradiction.\n\n'
+    'For this scoring step, return only the score through the Score question type. '
+    'Evidence, rationale, and Reviewer Flags will be generated in a separate future step.'
+)
+
 CRITERIA = {
     "problem_and_user": {
         "key": "problem_and_user",
         "label": "PROBLEM & USER",
         "abbrev": "P&U",
         "instructions": (
-            "How clearly and meaningfully does the submission establish who has the problem, "
-            "what the problem is, and why it matters?\n\n"
-            "Score only what the submission demonstrates. Do not infer undocumented work. "
-            "Use only the submitted slide deck — no external knowledge. "
-            "Accept factual claims at face value. "
-            "Credit product thinking that is clearly demonstrated even if teams do not use "
-            "explicit product-management vocabulary. "
-            "Aggregate evidence from anywhere in the deck. "
-            "Use holistic best-fit scoring — select the single anchor that best describes "
-            "what is demonstrated. "
-            "Do not penalise for slide aesthetics, writing polish, or presentation style. "
-            "Direct user evidence is NOT required for a 5 — a submission that exceptionally "
-            "clearly establishes the user, problem and consequences can score 5 even without "
-            "direct user evidence."
+            'How clearly and meaningfully does the submission establish who has the problem, what the problem is, and why it matters?\n\n'
+            + COMMON_INSTRUCTIONS
+            + '\n\nDirect user evidence is not required for a 5 on Problem & User. A submission that exceptionally clearly establishes the user, problem and consequences can score 5 even without direct user evidence.'
         ),
         "criteria": [
             "1 — Weak: User and/or problem is absent, vague or difficult to understand. "
@@ -51,23 +94,15 @@ CRITERIA = {
         "label": "PROBLEM UNDERSTANDING",
         "abbrev": "PU",
         "instructions": (
-            "How well does the submission demonstrate that the team investigated and understood "
-            "the problem rather than simply assuming its initial idea was correct?\n\n"
-            "Score only what the submission demonstrates. Do not infer undocumented work. "
-            "Use only the submitted slide deck — no external knowledge. "
-            "Accept factual claims at face value. "
-            "Credit product thinking that is clearly demonstrated even if teams do not use "
-            "explicit product-management vocabulary such as 'root cause', 'hypothesis', or 'discovery'. "
-            "Do not mechanically require techniques such as Five Whys, personas, journey maps, "
-            "or formal interviews. "
-            "Excellent user evidence alone can support a 5 — do not require both excellent user "
-            "evidence AND explicit root-cause analysis."
+            'How well does the submission demonstrate that the team investigated and understood the problem rather than simply assuming its initial idea was correct?\n\n'
+            + COMMON_INSTRUCTIONS
+            + '\n\nExcellent user evidence alone can support a 5. Do not require both excellent user evidence and explicit root-cause analysis, given the limited time available to participants. Do not mechanically require techniques such as Five Whys, personas, journey maps or formal interviews.'
         ),
         "criteria": [
             "1 — Weak: Understanding is mostly assumed. Little or no evidence or reasoning "
             "demonstrates that the team investigated the problem before pursuing its solution.",
-            "2 — Limited: Shows some attempt to understand the problem — for example users, "
-            "observations, assumptions or possible causes — but the resulting insight remains "
+            "2 — Limited: Shows some attempt to understand the problem---for example users, "
+            "observations, assumptions or possible causes---but the resulting insight remains "
             "superficial or weakly supported.",
             "3 — Good: Demonstrates meaningful investigation through relevant evidence and/or "
             "cause-and-effect reasoning. The resulting understanding provides a reasonable basis "
@@ -86,17 +121,12 @@ CRITERIA = {
         "label": "OUTCOMES",
         "abbrev": "O",
         "instructions": (
-            "Does the team define success as a meaningful change for users or operations rather "
-            "than merely producing an AI solution?\n\n"
-            "Score only what the submission demonstrates. Do not infer undocumented work. "
-            "Use only the submitted slide deck — no external knowledge. "
-            "Accept factual claims at face value. "
-            "A compelling outcome that is not explicitly measurable can score 4, but NOT 5. "
-            "A score of 5 requires an explicit measurable outcome or success measure showing "
-            "how the team would know whether the intended change occurred."
+            'Does the team define success as a meaningful change for users or operations rather than merely producing an AI solution?\n\n'
+            + COMMON_INSTRUCTIONS
+            + '\n\nA compelling outcome that is not explicitly measurable can score 4, but not 5.'
         ),
         "criteria": [
-            "1 — Weak: Success is essentially the production of an output — for example building "
+            "1 — Weak: Success is essentially the production of an output---for example building "
             "an AI application, agent, chatbot or feature. Little indication is given of what "
             "becomes better for the user or operation.",
             "2 — Limited: Implies some benefit or improvement, but it remains vague, "
@@ -105,7 +135,7 @@ CRITERIA = {
             "users or operations. Success goes beyond simply having built the solution.",
             "4 — Strong: Defines a specific and meaningful change in user or operational performance "
             "and gives a strong indication of how success could be recognised or assessed.",
-            "5 — Excellent: Defines a meaningful user or operational outcome AND an explicit "
+            "5 — Excellent: Defines a meaningful user or operational outcome and an explicit "
             "measurable outcome or success measure showing how the team would know whether the "
             "intended change occurred.",
         ],
@@ -115,14 +145,9 @@ CRITERIA = {
         "label": "TEST & LEARN",
         "abbrev": "T&L",
         "instructions": (
-            "Does the submission demonstrate genuine experimentation and learning rather than "
-            "assuming the proposed idea will work?\n\n"
-            "Score only what the submission demonstrates. Do not infer undocumented work. "
-            "Use only the submitted slide deck — no external knowledge. "
-            "Accept factual claims at face value. "
-            "Merely performing tests is insufficient for a 5. "
-            "A score of 5 requires evidence that learning actually influenced the solution, "
-            "a decision, or the next test."
+            'Does the submission demonstrate genuine experimentation and learning rather than assuming the proposed idea will work?\n\n'
+            + COMMON_INSTRUCTIONS
+            + '\n\nMerely performing tests is insufficient for a 5. A score of 5 requires evidence that learning actually influenced the solution, a decision, or the next test.'
         ),
         "criteria": [
             "1 — Weak: Assumes the idea or solution will work. No meaningful testing, learning, "
