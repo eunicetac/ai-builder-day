@@ -1,0 +1,14 @@
+.git
+.claude
+.codex
+.agents
+.aws
+.env
+.env.*
+venv
+.venv
+__pycache__
+*.pyc
+.DS_Store
+results.json
+*.pptx

@@ -16,7 +16,7 @@ rubric decisions.
 | Language | Python 3.11+ |
 | Web framework | Flask |
 | Scoring engine | jev.ai via `typesafe-sdk` pip package |
-| Text extraction | `markitdown[pptx]` (CLI: `markitdown file.pptx`) |
+| Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR |
 | Deployment | Railway (from GitHub repo) |
 | Storage | Local filesystem (`results.json`); Railway filesystem is ephemeral |
 
@@ -25,7 +25,11 @@ rubric decisions.
 flask
 typesafe-sdk
 markitdown[pptx]
+python-pptx
+Pillow
 ```
+
+Tesseract is a system dependency; see README.md. The Dockerfile installs it for deployment.
 
 ---
 
@@ -48,6 +52,7 @@ No templates folder. All HTML is inline in `app.py` using `render_template_strin
 | Variable | Required | Description |
 |---|---|---|
 | `TYPESAFE_API_KEY` | Yes | API key from jev-ai.pro |
+| `OCR_LANGUAGE` | Optional | Installed Tesseract language codes; default `eng`. |
 | `PORT` | Railway only | Set automatically by Railway. Default to 5000 if absent. |
 | `FLASK_ENV` | Optional | Set to `production` on Railway to disable debug mode. |
 
@@ -154,18 +159,24 @@ Never fully overwritten; new results are appended and duplicates (matched by `fi
 
 ## 6. Text Extraction
 
-Extract slide text from a `.pptx` file using the `markitdown` CLI via subprocess:
+`extract_deck_content()` first extracts native slide text through the MarkItDown
+CLI, then appends an OCR section for embedded raster images using Tesseract
+(`--psm 11`). Each non-empty image transcription is labeled with its slide and
+image number. No paraphrasing, spelling correction, or summarization is applied.
 
-```python
-import subprocess
-result = subprocess.run(
-    ["markitdown", str(pptx_path)],
-    capture_output=True, text=True
-)
-if result.returncode != 0:
-    raise RuntimeError(f"markitdown failed: {result.stderr}")
-return result.stdout.strip()
-```
+Image references are read from each slide's XML, including grouped pictures,
+picture fills, and slide backgrounds. Image crop rectangles are respected and
+transparent images are composited on white before OCR. Repeated images with
+identical crops are OCR'd once per extraction, but retain each slide reference.
+
+If Tesseract is absent when images are present, an image format is unsupported,
+an image is linked rather than embedded, or OCR fails, extraction fails with an
+explicit error identifying the slide/image instead of silently omitting it.
+Decks without images do not require Tesseract.
+
+OCR is best effort and cannot guarantee exact words. Review the extracted text
+before scoring. Layout/master images, vector artwork, overlays, and the final
+rendered slide appearance are outside this extraction path's coverage.
 
 In CLI mode and `/api/judge`, the extracted text is passed directly as the
 `state` string to jev.ai. Do not automatically pre-process, truncate, or
@@ -274,7 +285,7 @@ Validation:
 
 Processing:
 1. Save uploaded file to a temp path
-2. Extract text via markitdown
+2. Extract native text and embedded image text via `extract_deck_content`
 3. Score via jev.ai
 4. Build and save result object
 5. Return JSON result object
@@ -301,7 +312,7 @@ Validation:
 
 Processing:
 1. Save uploaded file to a temp path
-2. Extract text via markitdown
+2. Extract native text and embedded image text via `extract_deck_content`
 3. Return `{"text": "<extracted markdown>"}` as JSON
 4. On any error → return `{"error": "..."}` with status 500
 
@@ -346,8 +357,10 @@ Do not implement this step now.
 
 ## 10. Deployment (Railway)
 
-1. Push `judge.py`, `app.py`, `requirements.txt` to GitHub repo root
-2. Railway auto-detects Python, installs from `requirements.txt`, starts `app.py`
+1. Push `judge.py`, `app.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
+2. Railway builds the Dockerfile, installing Python dependencies and Tesseract, then starts `app.py`
+   `railway.json` selects the Dockerfile builder and `/` startup healthcheck.
+   Keep the service root at the repository root and clear custom build/start commands.
 3. Set environment variables in Railway dashboard:
    - `TYPESAFE_API_KEY` = jev-ai.pro API key
    - `FLASK_ENV` = production

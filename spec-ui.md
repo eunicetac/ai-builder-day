@@ -272,7 +272,7 @@ Auto-filled from filename stem when a file is selected (if the field is still em
 - Hover/dragover: border-color `--accent`, background #f6f7ff
 - Icon: 📂 (2rem)
 - Label: "Drop a .pptx file here, or click to browse" (0.88rem, `--ink-2`)
-- Hint: ".pptx files only — slide text is extracted automatically" (0.75rem, `--ink-3`)
+- Hint: ".pptx files only — slide and image text is extracted automatically" (0.75rem, `--ink-3`)
 - On file selected: replace label with the filename in `--accent`
 
 **Extract text button:** below upload zone, background `--ink`, white text, border-radius 7px,
@@ -294,7 +294,7 @@ White card, border `--border`, border-radius 10px, padding 1.5rem.
 The card shows an editable text panel (`text-edit-panel`) that fills the card:
 - **Header** (border-bottom `--border`): filename (weight 600, 0.82rem) + live char/word count (0.72rem, `--ink-3`, updates as user types)
 - **Editable textarea** (monospace font, 0.75rem, `--ink-2`): pre-filled with extracted markdown, scrollable (max-height 55vh), no border/outline
-- **Footer** (border-top `--border`): hint text "Edit the text above if needed, then judge it." + **"Judge this text →" button** (background `--accent`, white text)
+- **Footer** (border-top `--border`): hint text "Check image text for OCR errors, edit if needed, then judge it." + **"Judge this text →" button** (background `--accent`, white text)
 
 **State 2 — judging** (while waiting for jev.ai):
 - Centered message: "Judging — this takes about 30 seconds…"
@@ -347,7 +347,7 @@ Label: "Extract text". Shows "⏳ Extracting…" while waiting.
 
 **What this shows section** (below button, separated by border-top):
 - Section label "What this shows"
-- Explanatory paragraph: "The raw markdown text extracted from the slide deck by `markitdown`. Use this to verify that slide content is being read correctly. On Judge a deck, you can edit this text before sending it to jev.ai for scoring."
+- Explanatory paragraph: "Native slide text plus text recognized in images. Image text is labeled by slide and image number. OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text before sending it to jev.ai."
 
 ### Right panel — text output
 

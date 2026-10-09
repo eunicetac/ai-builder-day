@@ -402,7 +402,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
           <input type="file" id="file-input" accept=".pptx">
           <div class="upload-icon">📂</div>
           <div class="upload-label" id="upload-label">Drop a .pptx file here, or click to browse</div>
-          <div class="upload-hint">.pptx files only — slide text is extracted automatically</div>
+          <div class="upload-hint">.pptx files only — slide and image text is extracted automatically</div>
         </div>
         <button class="judge-btn" id="judge-btn" disabled>Extract text</button>
         <div class="what-scores">
@@ -439,9 +439,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
         <div class="what-scores" style="margin-top:1rem;padding-top:1rem">
           <div class="what-label">What this shows</div>
           <p style="font-size:.82rem;color:var(--ink-2);line-height:1.5">
-            The raw markdown text extracted from the slide deck by
-            <code>markitdown</code>. Use this to verify that slide content is being read correctly.
-            On Judge a deck, you can edit this text before sending it to jev.ai for scoring.
+            Native slide text plus text recognized in images. Image text is labeled by slide and image number.
+            OCR may misread words; check the text before scoring. On Judge a deck, you can edit this text
+            before sending it to jev.ai.
           </p>
         </div>
       </div>
@@ -773,7 +773,7 @@ function renderTextEditor(text) {
       </div>
       <textarea class="text-edit-area" id="edit-textarea" spellcheck="false">${esc(text)}</textarea>
       <div class="text-edit-footer">
-        <span class="text-edit-hint">Edit the text above if needed, then judge it.</span>
+        <span class="text-edit-hint">Check image text for OCR errors, edit if needed, then judge it.</span>
         <button class="judge-text-btn" id="judge-text-btn">Judge this text →</button>
       </div>
     </div>`;

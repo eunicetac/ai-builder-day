@@ -1,13 +1,20 @@
 """PC8 Product Thinking AI Judge — CLI scoring script."""
 
 import json
+import hashlib
+import io
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from typesafe_sdk import Score, TypeSafeClient
+from PIL import Image, ImageOps
+from pptx import Presentation
+from pptx.oxml.ns import qn
 
 COMMON_INSTRUCTIONS = (
     "The Product Thinking AI Judge assesses the quality of product thinking demonstrated in a team's "
@@ -180,6 +187,64 @@ def extract_deck_content(pptx_path: Path) -> str:
     )
     if result.returncode != 0:
         raise RuntimeError(f"markitdown failed: {result.stderr}")
+    native_text = result.stdout.strip()
+    image_text = extract_image_text(pptx_path)
+    return "\n\n".join(part for part in (native_text, image_text) if part)
+
+
+def extract_image_text(pptx_path: Path) -> str:
+    """Append transcribed image text with slide references, without paraphrasing."""
+    sections = []
+    cache = {}
+    for slide_number, slide in enumerate(Presentation(pptx_path).slides, 1):
+        # Includes pictures inside groups, picture fills, and slide backgrounds.
+        for image_number, blip in enumerate(slide.element.xpath(".//a:blip"), 1):
+            relationship = blip.get(qn("r:embed"))
+            if not relationship:
+                raise RuntimeError(
+                    f"Slide {slide_number}: linked image cannot be OCR'd; embed it in the deck."
+                )
+            blob = slide.part.related_part(relationship).blob
+            crop_element = blip.getparent().find(qn("a:srcRect"))
+            crop = tuple(float(crop_element.get(side, "0")) / 100000
+                         for side in ("l", "t", "r", "b")) if crop_element is not None else (0, 0, 0, 0)
+            key = (hashlib.sha256(blob).hexdigest(), crop)
+            if key not in cache:
+                try:
+                    cache[key] = ocr_image(blob, crop)
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Slide {slide_number}, image {image_number}: {exc}"
+                    ) from exc
+            if cache[key]:
+                sections.append(
+                    f"### Slide {slide_number} — Image {image_number} (OCR)\n\n{cache[key]}"
+                )
+    return "## Text recognized in slide images (OCR)\n\n" + "\n\n".join(sections) if sections else ""
+
+
+def ocr_image(blob: bytes, crop: tuple) -> str:
+    if not shutil.which("tesseract"):
+        raise RuntimeError("Tesseract OCR is not installed. See README.md for setup.")
+    with Image.open(io.BytesIO(blob)) as image:
+        image = ImageOps.exif_transpose(image).convert("RGBA")
+        left, top, right, bottom = crop
+        if any(crop):
+            image = image.crop((round(image.width * left), round(image.height * top),
+                                round(image.width * (1 - right)), round(image.height * (1 - bottom))))
+        background = Image.new("RGBA", image.size, "white")
+        background.alpha_composite(image)
+        image = background.convert("RGB")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image.png"
+            image.save(path)
+            result = subprocess.run(
+                ["tesseract", str(path), "stdout", "-l", os.environ.get("OCR_LANGUAGE", "eng"),
+                 "--psm", "11"],
+                capture_output=True, text=True, timeout=120,
+            )
+    if result.returncode != 0:
+        raise RuntimeError(f"Tesseract failed: {result.stderr.strip()}")
     return result.stdout.strip()
 
 
