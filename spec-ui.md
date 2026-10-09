@@ -265,7 +265,9 @@ Two-column layout (1fr 1fr, gap 1.5rem, align-items start). Single column on mob
 White card, border `--border`, border-radius 10px, padding 1.5rem.
 
 **Team name input:** text field above the upload zone, label "Team name", placeholder "e.g. Team Alpha".
-Auto-filled from filename stem when a file is selected (if the field is still empty).
+Auto-filled from filename stem when a file is selected if the field is empty
+or still matches the previous file's stem. Selecting a new file updates an
+automatically filled name; a manually customized name is preserved.
 
 **Upload zone:**
 - Border: 2px dashed `--border`, border-radius 8px, padding 2.5rem 1.5rem, text-align center, cursor pointer

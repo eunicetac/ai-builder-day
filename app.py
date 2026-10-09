@@ -728,9 +728,11 @@ fileInput.addEventListener('change', () => {
 });
 
 function setFile(f) {
+  const previousTeam = selectedFile?.name.replace(/\.(pptx|pdf)$/i, '');
+  const updateTeam = !teamInput.value.trim() || teamInput.value === previousTeam;
   selectedFile = f;
   uploadLabel.innerHTML = `<span class="upload-filename">${esc(f.name)}</span>`;
-  if (!teamInput.value.trim()) {
+  if (updateTeam) {
     teamInput.value = f.name.replace(/\.(pptx|pdf)$/i, '');
   }
   judgeBtn.disabled = false;
