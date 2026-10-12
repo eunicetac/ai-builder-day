@@ -88,13 +88,16 @@ in `judge.py` as `COMMON_INSTRUCTIONS` and applied to all four questions.
 
 ### Response parsing
 
-jev.ai returns a probability-weighted fractional score per question.
+jev.ai returns a probability-weighted fractional score per question on its
+zero-based 0–4 scale. Anchor position 0 represents rubric score 1; position 4
+represents rubric score 5. Convert to the 1–5 scale before rounding.
 
 ```python
-raw = response.answers[key].score        # float, e.g. 2.73
-integer_score = max(1, min(5, round(raw)))
+raw = response.answers[key].score        # API 0–4, e.g. 2.73
+integer_score = max(1, min(5, round(raw + 1)))  # rubric 1–5: 4
 borderline = abs(raw - round(raw)) > 0.35
-distribution = response.answers[key].probabilities   # list of 5 floats
+probs = response.answers[key].probabilities  # dictionary keyed by API levels 0–4
+distribution = [probs.get(str(k), probs.get(k, 0.0)) for k in range(5)]
 confidence = response.answers[key].confidence        # float or None
 ```
 
@@ -105,6 +108,10 @@ confidence" and separately displays the awarded score's probability from
 the largest probability for model confidence.
 
 Always return a single integer 1–5. Never return fractional scores to the UI.
+The stored `raw` field retains the API's zero-based fractional value. Distribution
+index 0 is rubric score 1, and index 4 is rubric score 5. Previously saved results
+using the unshifted conversion need scores and totals recalculated from their
+stored `raw` values, or must be rejudged, before comparing scores.
 
 ---
 
@@ -122,28 +129,28 @@ Always return a single integer 1–5. Never return fractional scores to the UI.
   "criteria": {
     "problem_and_user": {
       "score": 4,
-      "raw": 3.821,
+      "raw": 2.821,
       "distribution": [0.02, 0.08, 0.19, 0.61, 0.10],
       "confidence": 0.84,
       "borderline": false
     },
     "problem_understanding": {
       "score": 3,
-      "raw": 2.651,
+      "raw": 1.651,
       "distribution": [0.05, 0.22, 0.48, 0.21, 0.04],
       "confidence": 0.71,
       "borderline": true
     },
     "outcomes": {
       "score": 4,
-      "raw": 3.912,
+      "raw": 2.912,
       "distribution": [0.01, 0.05, 0.12, 0.68, 0.14],
       "confidence": 0.89,
       "borderline": false
     },
     "test_and_learn": {
       "score": 2,
-      "raw": 1.943,
+      "raw": 0.943,
       "distribution": [0.22, 0.58, 0.15, 0.04, 0.01],
       "confidence": 0.79,
       "borderline": false

@@ -299,10 +299,12 @@ def score_deck(content: str) -> dict:
     for key in CRITERIA_ORDER:
         answer = response.answers[key]
         raw = answer.score
-        integer_score = max(1, min(5, round(raw)))
+        # The SDK indexes the five anchors 0–4; the competition rubric is 1–5.
+        rubric_raw = raw + 1
+        integer_score = max(1, min(5, round(rubric_raw)))
         borderline = abs(raw - round(raw)) > 0.35
         probs = answer.probabilities
-        distribution = [probs.get(k, probs.get(str(k), 0.0)) for k in sorted(probs.keys(), key=int)]
+        distribution = [probs.get(str(k), probs.get(k, 0.0)) for k in range(5)]
         confidence = answer.confidence
 
         result_criteria[key] = {
