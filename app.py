@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template_string, request
 
-from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, score_deck
+from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, refresh_confidence_flags, score_deck
 
 app = Flask(__name__)
 
@@ -131,6 +131,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .mini-cell{background:var(--surface);border-radius:6px;padding:.5rem .6rem;text-align:center}
 .mini-label{font-size:.65rem;color:var(--ink-3);margin-bottom:.3rem}
 .mini-borderline{font-size:.62rem;color:#E8750A;margin-top:.2rem}
+.confidence-band{display:inline-block;font-size:.65rem;font-weight:600;border-radius:4px;padding:.15rem .35rem;margin-top:.3rem}
+.confidence-high{color:#2E7D32;background:#f0fdf4}
+.confidence-medium{color:#9A5800;background:#fff7ed}
+.confidence-low{color:#D93025;background:#fef2f2}
+.confidence-unavailable{color:var(--ink-2);background:var(--border)}
+.confidence-dot{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.confidence-dot.confidence-high{background:#2E7D32}
+.confidence-dot.confidence-medium{background:#E8750A}
+.confidence-dot.confidence-low{background:#D93025}
+.confidence-dot.confidence-unavailable{background:var(--ink-3)}
 .mini-conf{font-size:.72rem;color:var(--ink-3);margin-top:.1rem}
 .dist-bars{margin-top:.5rem}
 .dist-row{display:flex;align-items:center;gap:.3rem;margin-top:.2rem}
@@ -517,6 +527,19 @@ function distBars(distribution) {
 }
 
 // --- Results page (always fetches fresh from API) ---
+function confidenceIndicator(c) {
+  const band = ['high','medium','low'].includes(c?.confidence_band) ? c.confidence_band : 'unavailable';
+  const labels = {high:'High confidence',medium:'Medium confidence',low:'Low confidence',unavailable:'Confidence unavailable'};
+  const guidance = {high:'Routine review',medium:'Review recommended',low:'Review required before finalizing',unavailable:'Confidence was not provided; review manually'};
+  return `<span class="confidence-band confidence-${band}" title="${guidance[band]}">${labels[band]}</span>`;
+}
+
+function confidenceDot(c) {
+  const band = ['high','medium','low'].includes(c?.confidence_band) ? c.confidence_band : 'unavailable';
+  const labels = {high:'High confidence',medium:'Medium confidence',low:'Low confidence',unavailable:'Confidence unavailable'};
+  return `<span class="confidence-dot confidence-${band}" role="img" aria-label="${labels[band]}" title="${labels[band]}"></span>`;
+}
+
 function criterionMetrics(c, className) {
   const probability = c?.distribution?.[c.score - 1];
   const scoreProbability = Number.isFinite(probability)
@@ -572,7 +595,7 @@ async function renderResults() {
       <div class="summary-card"><div class="summary-value">${results.length}</div><div class="summary-label">Teams judged</div></div>
       <div class="summary-card"><div class="summary-value">${highest.toFixed(0)}<span style="font-size:1rem;font-weight:400;color:var(--ink-3)">/40</span></div><div class="summary-label">Highest score</div></div>
       <div class="summary-card"><div class="summary-value">${avg}<span style="font-size:1rem;font-weight:400;color:var(--ink-3)">/40</span></div><div class="summary-label">Average score</div></div>
-      <div class="summary-card"><div class="summary-value">${flags}</div><div class="summary-label">Borderline flags</div></div>
+      <div class="summary-card"><div class="summary-value">${flags}</div><div class="summary-label">Confidence review flags</div></div>
     </div>`;
 
   const tableRows = sorted.map((r, i) => {
@@ -580,7 +603,7 @@ async function renderResults() {
     const rankCls = rank <= 2 ? 'rank-num rank-top' : 'rank-num';
     const critCells = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
-      const dot = c?.borderline ? '<span class="borderline-dot"></span>' : '';
+      const dot = confidenceDot(c);
       return `<td class="col-criterion"><div class="criterion-cell">${badge(c.score)}${dot}</div></td>`;
     }).join('');
     const barW = Math.round((r.weighted_score / 40) * 100);
@@ -620,7 +643,7 @@ async function renderResults() {
     const rankCls = rank <= 2 ? 'mlb-rank mlb-rank-top' : 'mlb-rank';
     const crits = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
-      const dot = c?.borderline ? '<span class="mlb-dot"></span>' : '';
+      const dot = confidenceDot(c);
       return `<div class="mlb-crit">
         <span class="mlb-crit-label">${CRITERIA_LABELS[k].abbrev}</span>
         ${badge(c.score)}${dot}
@@ -649,7 +672,7 @@ function breakdownCard(r) {
   const cells = CRITERIA_ORDER.map(k => {
     const c = r.criteria[k];
     const lbl = CRITERIA_LABELS[k].abbrev;
-    const bl = c?.borderline ? '<div class="mini-borderline">⚠ borderline</div>' : '';
+    const bl = confidenceIndicator(c);
     const conf = criterionMetrics(c, 'mini-conf');
     const dist = distBars(c?.distribution);
     return `<div class="mini-cell">
@@ -693,7 +716,7 @@ function renderBreakdown(idx) {
   if (selectedCard) {
     const cells = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
-      const bl = c?.borderline ? `<div class="mbd-bl">⚠ borderline</div>` : '';
+      const bl = confidenceIndicator(c);
       const conf = criterionMetrics(c, 'mbd-conf');
       return `<div class="mbd-cell">
         <div class="mbd-label">${CRITERIA_LABELS[k].label}</div>
@@ -838,7 +861,8 @@ function renderJudgeResult(result) {
         <div class="crit-text">
           <div class="crit-name">${esc(info.label)}</div>
           <div class="crit-anchor">${anchor}</div>
-          ${c.borderline ? '<div class="crit-borderline">⚠ borderline</div>' : ''}
+          ${confidenceIndicator(c)}
+          ${criterionMetrics(c, 'mini-conf')}
         </div>
       </div>
       <div class="crit-dist-full">${distBars(c.distribution)}</div>
@@ -847,7 +871,7 @@ function renderJudgeResult(result) {
 
   const borderlineKeys = CRITERIA_ORDER.filter(k => result.criteria[k]?.borderline);
   const flagsHtml = borderlineKeys.length
-    ? `<span class="result-flags">⚠ Borderline: ${borderlineKeys.map(k => CRITERIA_LABELS[k].abbrev).join(', ')}</span>`
+    ? `<span class="result-flags">⚠ Review recommended/required: ${borderlineKeys.map(k => CRITERIA_LABELS[k].abbrev).join(', ')}</span>`
     : '<span></span>';
 
   resultPanel.innerHTML = `
@@ -943,7 +967,7 @@ def load_results():
     if not RESULTS_PATH.exists():
         return []
     with open(RESULTS_PATH) as f:
-        return json.load(f)
+        return refresh_confidence_flags(json.load(f))
 
 
 def save_results(results):

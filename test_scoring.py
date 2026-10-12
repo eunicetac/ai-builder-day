@@ -6,10 +6,10 @@ import judge
 
 
 class ScoringTests(unittest.TestCase):
-    def score(self, raw, probabilities):
-        answer = SimpleNamespace(score=raw, probabilities=probabilities, confidence=0.8)
+    def score(self, raw, probabilities, confidence=0.8):
+        answer = SimpleNamespace(score=raw, probabilities=probabilities, confidence=confidence)
         response = SimpleNamespace(answers={key: answer for key in judge.CRITERIA_ORDER})
-        with patch.dict(judge.os.environ, {"TYPESAFE_API_KEY": "test-key"}), \
+        with patch.dict(judge.os.environ, {"TYPESAFE_API_KEY": "test-key", "CONFIDENCE_LOW_THRESHOLD": "0.50", "CONFIDENCE_HIGH_THRESHOLD": "0.80"}), \
                 patch.object(judge, "TypeSafeClient") as client:
             client.return_value.__enter__.return_value.system_one.return_value = response
             return judge.score_deck("deck evidence")
@@ -38,8 +38,44 @@ class ScoringTests(unittest.TestCase):
     def test_borderline_and_integer_probability_keys(self):
         c = self.score(2.4, {2: 0.6, 3: 0.4})["outcomes"]
         self.assertEqual(c["score"], 3)
-        self.assertTrue(c["borderline"])
+        self.assertFalse(c["borderline"])
         self.assertEqual(c["distribution"], [0, 0, 0.6, 0.4, 0])
+
+    def test_flag_uses_confidence_not_fractional_score(self):
+        for confidence, expected in [(0.49, True), (0.50, True), (0.79, True), (0.80, False), (0.95, False), (None, False)]:
+            for raw in (2.0, 2.4):
+                with self.subTest(confidence=confidence, raw=raw):
+                    c = self.score(raw, {2: 0.6, 3: 0.4}, confidence)["outcomes"]
+                    self.assertEqual(c["borderline"], expected)
+
+    def test_saved_flags_refresh_without_changing_scores(self):
+        results = [{"raw_total": 8, "criteria": {
+            "outcomes": {"score": 2, "raw": 1.4, "confidence": 0.9, "borderline": True},
+            "test_and_learn": {"score": 2, "raw": 1.0, "confidence": 0.6, "borderline": False},
+        }}]
+        with patch.dict(judge.os.environ, {"CONFIDENCE_LOW_THRESHOLD": "0.50", "CONFIDENCE_HIGH_THRESHOLD": "0.80"}):
+            judge.refresh_confidence_flags(results)
+        self.assertFalse(results[0]["criteria"]["outcomes"]["borderline"])
+        self.assertTrue(results[0]["criteria"]["test_and_learn"]["borderline"])
+        self.assertEqual(results[0]["raw_total"], 8)
+        self.assertEqual(results[0]["criteria"]["outcomes"]["score"], 2)
+        with patch.dict(judge.os.environ, {"CONFIDENCE_LOW_THRESHOLD": "0.30", "CONFIDENCE_HIGH_THRESHOLD": "0.50"}):
+            judge.refresh_confidence_flags(results)
+        self.assertFalse(results[0]["criteria"]["test_and_learn"]["borderline"])
+
+    def test_bands_and_threshold_boundaries(self):
+        with patch.dict(judge.os.environ, {"CONFIDENCE_LOW_THRESHOLD": "0.50", "CONFIDENCE_HIGH_THRESHOLD": "0.80"}):
+            for confidence, expected in [(0, "low"), (0.499, "low"), (0.50, "medium"),
+                                         (0.799, "medium"), (0.80, "high"), (1, "high"),
+                                         (None, "unavailable"), (float("nan"), "unavailable")]:
+                self.assertEqual(judge.confidence_band(confidence), expected)
+
+    def test_threshold_rejects_invalid_values(self):
+        for low, high in [("-0.1", "0.8"), ("0.5", "1.1"), ("nan", "0.8"),
+                          ("bad", "0.8"), ("0.8", "0.5"), ("0.5", "0.5")]:
+            with patch.dict(judge.os.environ, {"CONFIDENCE_LOW_THRESHOLD": low, "CONFIDENCE_HIGH_THRESHOLD": high}):
+                with self.assertRaises(ValueError):
+                    judge.confidence_thresholds()
 
 
 if __name__ == "__main__":

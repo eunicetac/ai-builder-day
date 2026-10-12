@@ -45,3 +45,15 @@ combining hidden OCR layers with image transcriptions. Password-protected PDFs
 must be unlocked first. Output is labeled `Page N (OCR)`. OCR may still misread
 words or reading order; review the editable preview. Rendering/OCR takes longer
 than native text extraction, particularly on long PDFs.
+
+Confidence is shown in three bands: High (≥80%), Medium (50–<80%), and Low
+(<50%). Missing/invalid confidence is Unavailable. Configure boundaries through
+`CONFIDENCE_LOW_THRESHOLD` (default `0.50`) and `CONFIDENCE_HIGH_THRESHOLD`
+(default `0.80`) in Railway Variables. The old `CONFIDENCE_THRESHOLD` setting
+is no longer used. Boundaries must satisfy `0 <= LOW < HIGH <= 1`.
+
+Saved results get their bands refreshed when loaded. Scores and totals stay
+unchanged. The compatibility `borderline` flag now marks Medium/Low for review.
+Band guidance is Routine review (High), Review recommended (Medium), and Review
+required before finalizing (Low); the human review/finalization workflow is not
+yet implemented. Calibrate these initial thresholds using human assessments.

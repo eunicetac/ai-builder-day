@@ -1,6 +1,7 @@
 """PC8 Product Thinking AI Judge — CLI scoring script."""
 
 import json
+import math
 import hashlib
 import io
 import os
@@ -181,6 +182,37 @@ SCORE_LABELS = {1: "Weak", 2: "Limited", 3: "Good", 4: "Strong", 5: "Excellent"}
 SUPPORTED_EXTENSIONS = {".pptx", ".pdf"}
 
 
+def confidence_thresholds() -> tuple[float, float]:
+    low = float(os.environ.get("CONFIDENCE_LOW_THRESHOLD", "0.50"))
+    high = float(os.environ.get("CONFIDENCE_HIGH_THRESHOLD", "0.80"))
+    if not all(math.isfinite(v) for v in (low, high)) or not 0 <= low < high <= 1:
+        raise ValueError("Confidence thresholds must satisfy 0 <= LOW < HIGH <= 1")
+    return low, high
+
+
+def confidence_band(confidence, thresholds=None) -> str:
+    low, high = thresholds if thresholds is not None else confidence_thresholds()
+    if confidence is None or not math.isfinite(confidence) or not 0 <= confidence <= 1:
+        return "unavailable"
+    if confidence < low:
+        return "low"
+    if confidence < high:
+        return "medium"
+    return "high"
+
+
+def refresh_confidence_flags(results: list) -> list:
+    """Apply current review policy to saved results without changing scores."""
+    thresholds = confidence_thresholds()
+    for result in results:
+        for criterion in result.get("criteria", {}).values():
+            confidence = criterion.get("confidence")
+            band = confidence_band(confidence, thresholds)
+            criterion["confidence_band"] = band
+            criterion["borderline"] = band in ("low", "medium")
+    return results
+
+
 def extract_deck_content(pptx_path: Path) -> str:
     if pptx_path.suffix.lower() == ".pdf":
         return extract_pdf_content(pptx_path)
@@ -280,6 +312,7 @@ def ocr_image(blob: bytes, crop: tuple) -> str:
 
 
 def score_deck(content: str) -> dict:
+    thresholds = confidence_thresholds()
     api_key = os.environ.get("TYPESAFE_API_KEY")
     if not api_key:
         raise RuntimeError("TYPESAFE_API_KEY environment variable not set")
@@ -302,16 +335,18 @@ def score_deck(content: str) -> dict:
         # The SDK indexes the five anchors 0–4; the competition rubric is 1–5.
         rubric_raw = raw + 1
         integer_score = max(1, min(5, round(rubric_raw)))
-        borderline = abs(raw - round(raw)) > 0.35
         probs = answer.probabilities
         distribution = [probs.get(str(k), probs.get(k, 0.0)) for k in range(5)]
         confidence = answer.confidence
+        band = confidence_band(confidence, thresholds)
+        borderline = band in ("low", "medium")
 
         result_criteria[key] = {
             "score": integer_score,
             "raw": raw,
             "distribution": distribution,
             "confidence": confidence,
+            "confidence_band": band,
             "borderline": borderline,
         }
 
@@ -336,7 +371,7 @@ def load_results() -> list:
     if not results_path.exists():
         return []
     with open(results_path) as f:
-        return json.load(f)
+        return refresh_confidence_flags(json.load(f))
 
 
 def save_results(results: list) -> None:
@@ -361,7 +396,8 @@ def print_result(result: dict) -> None:
         label = CRITERIA[key]["label"]
         score = c["score"]
         score_label = SCORE_LABELS.get(score, "")
-        borderline_flag = "  ⚠ borderline" if c.get("borderline") else ""
+        band = c.get("confidence_band") or confidence_band(c.get("confidence"))
+        borderline_flag = f"  ⚠ {band} confidence" if band in ("low", "medium") else ""
         print(f"{label}")
         print(f"  Score: {score}  ({score} - {score_label}){borderline_flag}")
         dist = c.get("distribution", [])
@@ -369,7 +405,9 @@ def print_result(result: dict) -> None:
             dist_parts = "  ".join(f"L{i+1}:{round(p*100)}%" for i, p in enumerate(dist))
             print(f"  Distribution: {dist_parts}")
         if c.get("confidence") is not None:
-            print(f"  Confidence: {round(c['confidence'] * 100)}%")
+            print(f"  Confidence: {round(c['confidence'] * 100)}% ({band})")
+        else:
+            print("  Confidence: unavailable")
         print()
     print(f"Raw rubric score:           {result['raw_total']}/20")
     print(f"Weighted competition score: {result['weighted_score']:.0f}/40")

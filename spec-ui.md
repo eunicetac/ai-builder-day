@@ -180,7 +180,7 @@ A single row of 6 cells (border 1px `--border`, border-radius 8px, overflow hidd
 - Teams judged (count of entries in results.json)
 - Highest score /40
 - Average score /40 (rounded to nearest integer)
-- Borderline flags (count of criteria across all teams where `borderline: true`)
+- Confidence review flags (count of criteria across all teams where `borderline: true`)
 
 Each card: white, border `--border`, border-radius 10px, padding 1.1rem 1.2rem.
 Value: 1.7rem, weight 800. Label: 0.72rem, `--ink-3`, margin-top .35rem.
@@ -216,8 +216,8 @@ Team cell:
 - Team name: weight 600, 0.88rem
 - Filename below: 0.72rem, `--ink-3`
 
-Criterion cells: centered score badge. If `borderline: true`, show an orange dot
-(5px circle, #E8750A) immediately to the right of the badge.
+Criterion cells: centered score badge plus a confidence dot: High green, Medium
+amber, Low red, Unavailable gray. Its accessible label and tooltip name the band.
 
 Raw cell: "{raw_total}/20", weight 700, `--ink-2`.
 
@@ -244,7 +244,7 @@ Card: white, border `--border`, border-radius 10px, padding 1.1rem 1.2rem.
 border-radius 6px, padding .5rem .6rem, text-align center.
 - Criterion label (0.65rem, `--ink-3`)
 - Score badge
-- If borderline: "⚠ borderline" in #E8750A, 0.62rem
+- Confidence band badge: High green, Medium amber, Low red, or Unavailable gray.
 - If distribution present: "Score {score} probability: {N}%", using the
   awarded score's distribution entry and the same rounding as its chart bar.
 - If confidence present: "Model confidence: {N}%" in `--ink-3`, 0.72rem.
@@ -313,13 +313,13 @@ The card shows an editable text panel (`text-edit-panel`) that fills the card:
 
 *Criteria list* (flex column, gap .7rem): one item per criterion:
 - Score badge + label + anchor description ("3 — Good") in a flex row
-- Each criterion with `borderline: true` shows an orange "⚠ borderline" label
-  below its score level. Highlight every flagged criterion independently.
+- Every criterion shows a confidence band badge and numeric Model confidence
+  below its score level, along with the awarded score probability when available.
 - Distribution bars below, indented under the text (padding-left 2.8rem)
 
 *Footer* (border-top, flex space-between, 0.75rem, `--ink-3`):
 - Left: "Raw: {raw_total}/20"
-- Right: reviewer flags if any (borderline criteria) — color #E8750A, weight 600
+- Right: review flags if any (Medium/Low confidence criteria) — color #E8750A, weight 600
 
 *"◈ View leaderboard →" button* below footer — navigates to Results page.
 
@@ -406,3 +406,19 @@ At ≤ 768px:
 - Leaderboard table hidden; mobile card list shown
 - Desktop breakdown section hidden; mobile breakdown inserted below selected card
 - Preview layout: single column
+
+
+## 11. Confidence bands
+
+Show High (default ≥80%, green), Medium (50–<80%, amber), Low (<50%, red),
+or Unavailable (gray) for every criterion, using the backend `confidence_band`.
+Keep the numeric Model confidence and chart probabilities distinct.
+Tooltips provide guidance: Routine review, Review recommended, Review required
+before finalizing, or Review manually for Unavailable. These labels do not
+implement a review workflow or prevent finalization.
+
+The existing `borderline` field is true for Medium/Low. The summary counts these
+criteria as Confidence review flags; the Judge footer lists them as requiring
+or recommending review. Missing confidence is not counted as Medium/Low and
+is explicitly labeled Unavailable. Results loaded from storage are refreshed
+using `CONFIDENCE_LOW_THRESHOLD` and `CONFIDENCE_HIGH_THRESHOLD`.

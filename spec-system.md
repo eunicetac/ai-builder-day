@@ -53,6 +53,8 @@ No templates folder. All HTML is inline in `app.py` using `render_template_strin
 | Variable | Required | Description |
 |---|---|---|
 | `TYPESAFE_API_KEY` | Yes | API key from jev-ai.pro |
+| `CONFIDENCE_LOW_THRESHOLD` | Optional | Lower boundary of Medium confidence; default `0.50`. |
+| `CONFIDENCE_HIGH_THRESHOLD` | Optional | Lower boundary of High confidence; default `0.80`. |
 | `OCR_LANGUAGE` | Optional | Installed Tesseract language codes; default `eng`. |
 | `PORT` | Railway only | Set automatically by Railway. Default to 5000 if absent. |
 | `FLASK_ENV` | Optional | Set to `production` on Railway to disable debug mode. |
@@ -95,10 +97,11 @@ represents rubric score 5. Convert to the 1–5 scale before rounding.
 ```python
 raw = response.answers[key].score        # API 0–4, e.g. 2.73
 integer_score = max(1, min(5, round(raw + 1)))  # rubric 1–5: 4
-borderline = abs(raw - round(raw)) > 0.35
 probs = response.answers[key].probabilities  # dictionary keyed by API levels 0–4
 distribution = [probs.get(str(k), probs.get(k, 0.0)) for k in range(5)]
 confidence = response.answers[key].confidence        # float or None
+band = confidence_band(confidence)  # low / medium / high / unavailable
+borderline = band in ("low", "medium")
 ```
 
 Store the API's confidence unchanged. It summarizes the full distribution;
@@ -106,6 +109,23 @@ it is not an individual level's probability. Results displays it as "Model
 confidence" and separately displays the awarded score's probability from
 `distribution[score - 1]`, matching that score's chart bar. Do not substitute
 the largest probability for model confidence.
+
+The `confidence_band` field is `low` below 0.50, `medium` from 0.50 up to
+but excluding 0.80, or `high` at 0.80 and above by default. Missing or invalid
+confidence is `unavailable`. The configurable thresholds must satisfy
+`0 <= CONFIDENCE_LOW_THRESHOLD < CONFIDENCE_HIGH_THRESHOLD <= 1`.
+The previous single `CONFIDENCE_THRESHOLD` setting is replaced by these two.
+
+The `borderline` field is retained for compatibility as a review flag: true for
+Medium and Low, false for High and Unavailable. Unavailable is explicitly
+labeled in the UI and must not be interpreted as high confidence. Stored bands
+and flags are recomputed from saved confidence whenever results are loaded,
+without changing scores, raw values, distributions, or totals.
+
+Band guidance is Routine review (High), Review recommended (Medium), Review
+required before finalizing (Low), and Review manually (Unavailable). These are
+review guidance labels; no finalization gate or human-review workflow is
+implemented yet. Thresholds are initial policies, not accuracy guarantees.
 
 Always return a single integer 1–5. Never return fractional scores to the UI.
 The stored `raw` field retains the API's zero-based fractional value. Distribution
@@ -132,13 +152,15 @@ stored `raw` values, or must be rejudged, before comparing scores.
       "raw": 2.821,
       "distribution": [0.02, 0.08, 0.19, 0.61, 0.10],
       "confidence": 0.84,
+      "confidence_band": "high",
       "borderline": false
     },
     "problem_understanding": {
       "score": 3,
       "raw": 1.651,
       "distribution": [0.05, 0.22, 0.48, 0.21, 0.04],
-      "confidence": 0.71,
+      "confidence": 0.61,
+      "confidence_band": "medium",
       "borderline": true
     },
     "outcomes": {
@@ -146,6 +168,7 @@ stored `raw` values, or must be rejudged, before comparing scores.
       "raw": 2.912,
       "distribution": [0.01, 0.05, 0.12, 0.68, 0.14],
       "confidence": 0.89,
+      "confidence_band": "high",
       "borderline": false
     },
     "test_and_learn": {
@@ -153,7 +176,8 @@ stored `raw` values, or must be rejudged, before comparing scores.
       "raw": 0.943,
       "distribution": [0.22, 0.58, 0.15, 0.04, 0.01],
       "confidence": 0.79,
-      "borderline": false
+      "confidence_band": "medium",
+      "borderline": true
     }
   }
 }
@@ -284,7 +308,7 @@ PROBLEM & USER
   Confidence: 84%
 
 PROBLEM UNDERSTANDING
-  Score: 3  (3 - Good)  ⚠ borderline
+  Score: 3  (3 - Good)  ⚠ medium confidence
   ...
 
 Raw rubric score:           13/20
