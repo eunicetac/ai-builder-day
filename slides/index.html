@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Thinking AI Judge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0B0D18;overflow:hidden}
+body{font-family:'DM Sans',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#deck{width:1920px;height:1080px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;width:1920px;height:1080px;overflow:hidden;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility .35s}
+.slide.active{opacity:1;visibility:visible}
+.slide div{min-width:0}
+.slide div:not([style*="display"]){display:flex;flex-direction:column}
+.slide h1{font-size:96px;font-weight:600;line-height:1.1}
+.slide h2{font-size:64px;font-weight:600;line-height:1.15}
+.slide h3{font-size:44px;font-weight:600;line-height:1.2}
+.slide p{font-size:32px;line-height:1.4}
+.slide ul,.slide ol{padding-left:1.2em;display:flex;flex-direction:column;gap:.15em}
+#bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px;font:500 14px 'DM Sans',Arial,sans-serif;color:#B8BDD6;opacity:0;transition:opacity .25s}
+body:hover #bar,#bar:focus-within{opacity:1}
+#bar button{background:rgba(255,255,255,.08);color:#F2F3F8;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer}
+#bar button:hover{background:rgba(255,255,255,.16)}
+#progress{position:fixed;left:0;top:0;height:3px;background:#4055D4;transition:width .3s}
+@media print{
+  html,body{overflow:visible;height:auto;background:#fff}
+  #stage{position:static;display:block}
+  #deck{transform:none!important;height:auto;width:1920px}
+  .slide{position:relative;opacity:1;visibility:visible;page-break-after:always;break-after:page}
+  #bar,#progress{display:none}
+  @page{size:1920px 1080px;margin:0}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="stage"><div id="deck">
+<section class="slide" id="title" data-transition="fade" style="background:#12162C;color:#F2F3F8;font-family:'DM Sans', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:center;gap:36px">
+<p style="font-size:36px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#8FA0FF">PC8 · AI Builder Day</p>
+<h1 style="font-size:128px;font-weight:800;line-height:1.02;letter-spacing:-3px;color:#F2F3F8">Product Thinking<br>AI Judge</h1>
+<p style="font-size:40px;line-height:1.4;color:#B8BDD6">Scoring Builder Day decks with jev.ai</p>
+
+</section>
+<section class="slide" id="jevai" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:36px;font-weight:700;color:#4055D4">Meet jev.ai</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.1;letter-spacing:-1px">jev.ai is the AI that does the scoring</h2>
+</div>
+<div style="display:flex;flex-direction:row;gap:16px;align-items:center">
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #E2E5EF;border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<p style="font-size:36px;font-weight:700;color:#6B7090">We send</p>
+<p style="font-size:36px;font-weight:700;line-height:1.3">The deck's text</p>
+<p style="font-size:36px;font-weight:700;line-height:1.3">4 rubric questions</p>
+<p style="font-size:36px;line-height:1.3;color:#4A4F6A">each with 5 level descriptions</p>
+</div>
+<svg aria-hidden="true" width="48" height="28" viewBox="0 0 48 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="38" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M34 5 L48 14 L34 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#4055D4;border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:12px;justify-content:center;align-items:center">
+<p style="font-size:72px;font-weight:800;color:#F7F8FC;letter-spacing:-1px">jev.ai</p>
+<p style="font-size:36px;line-height:1.3;color:#EEF0FF;text-align:center">Rates the text against each question in one request</p>
+</div>
+<svg aria-hidden="true" width="48" height="28" viewBox="0 0 48 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="38" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M34 5 L48 14 L34 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #E2E5EF;border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:12px">
+<p style="font-size:36px;font-weight:700;color:#6B7090">We get back, per question</p>
+<p style="font-size:36px;font-weight:700;line-height:1.3">A score</p>
+<p style="font-size:36px;font-weight:700;line-height:1.3">How likely each level is</p>
+<p style="font-size:36px;font-weight:700;line-height:1.3">A confidence figure</p>
+</div>
+</div>
+<p style="font-size:36px;line-height:1.35;color:#4A4F6A"><b style="color:#12162C">Why it helps:</b> jev.ai shows how sure it is, so uncertain scores can go to a human judge.</p>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:36px;color:#6B7090;text-align:right">02</p>
+
+</section>
+<section class="slide" id="criteria" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:28px">
+<h2 style="font-size:64px;font-weight:700;line-height:1.1;letter-spacing:-1px">Four questions, each rated 1 to 5</h2>
+<div style="display:flex;gap:20px">
+<div style="flex:1;background:#FEF2F2;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:4px"><p style="font-size:36px;font-weight:800;background:#D93025;color:#FFFFFF;width:60px;height:60px;border-radius:10px;text-align:center;line-height:1.67">1</p><p style="font-size:36px;font-weight:700">Weak</p><p style="font-size:36px;color:#4A4F6A">2 pts</p></div>
+<div style="flex:1;background:#FFF7ED;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:4px"><p style="font-size:36px;font-weight:800;background:#E8750A;color:#FFFFFF;width:60px;height:60px;border-radius:10px;text-align:center;line-height:1.67">2</p><p style="font-size:36px;font-weight:700">Limited</p><p style="font-size:36px;color:#4A4F6A">4 pts</p></div>
+<div style="flex:1;background:#FEFCE8;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:4px"><p style="font-size:36px;font-weight:800;background:#C8A000;color:#FFFFFF;width:60px;height:60px;border-radius:10px;text-align:center;line-height:1.67">3</p><p style="font-size:36px;font-weight:700">Good</p><p style="font-size:36px;color:#4A4F6A">6 pts</p></div>
+<div style="flex:1;background:#F0FDF4;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:4px"><p style="font-size:36px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:60px;height:60px;border-radius:10px;text-align:center;line-height:1.67">4</p><p style="font-size:36px;font-weight:700">Strong</p><p style="font-size:36px;color:#4A4F6A">8 pts</p></div>
+<div style="flex:1;background:#F0FDFA;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:4px"><p style="font-size:36px;font-weight:800;background:#00695C;color:#FFFFFF;width:60px;height:60px;border-radius:10px;text-align:center;line-height:1.67">5</p><p style="font-size:36px;font-weight:700">Excellent</p><p style="font-size:36px;color:#4A4F6A">10 pts</p></div>
+</div>
+<div style="display:flex;gap:28px">
+<div style="flex:1;background:#FFFFFF;border:1px solid #E2E5EF;border-radius:16px;padding:18px 28px;display:flex;flex-direction:column;gap:4px">
+<p style="font-size:36px;font-weight:700">Rating</p>
+<p style="font-size:36px;color:#4A4F6A">The level that fits the deck best</p>
+</div>
+<div style="flex:1;background:#FFFFFF;border:1px solid #E2E5EF;border-radius:16px;padding:18px 28px;display:flex;flex-direction:column;gap:4px">
+<p style="font-size:36px;font-weight:700">Points</p>
+<p style="font-size:36px;color:#4A4F6A">Rating × 2, so <b style="color:#12162C">40 in total</b></p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:36px;font-weight:700">Confidence: how sure jev.ai is about each rating</p>
+<div style="display:flex;gap:20px">
+<div style="flex:1;background:#F0FDF4;border:2px solid #A7D7B0;border-radius:16px;padding:16px 24px;display:flex;flex-direction:column;gap:2px"><p style="font-size:36px;font-weight:800;color:#2E7D32">High · 80%+</p><p style="font-size:36px;color:#2A2F4A">Routine check</p></div>
+<div style="flex:1;background:#FFF7ED;border:2px solid #F3C89A;border-radius:16px;padding:16px 24px;display:flex;flex-direction:column;gap:2px"><p style="font-size:36px;font-weight:800;color:#9A5800">Medium · 50–79%</p><p style="font-size:36px;color:#2A2F4A">Review recommended</p></div>
+<div style="flex:1;background:#FEF2F2;border:2px solid #F2B8B3;border-radius:16px;padding:16px 24px;display:flex;flex-direction:column;gap:2px"><p style="font-size:36px;font-weight:800;color:#D93025">Low · under 50%</p><p style="font-size:36px;color:#2A2F4A">Must be reviewed</p></div>
+</div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:36px;color:#6B7090;text-align:right">03</p>
+
+</section>
+<section class="slide" id="level-pu" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:112px 128px 128px;display:grid;grid-template-columns:500px 1fr;grid-template-rows:1fr;gap:36px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:14px;align-self:start">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Question 1 of 4 · word for word as sent to jev.ai</p>
+<h2 style="font-size:48px;font-weight:700;line-height:1.1;letter-spacing:-1px">Problem &amp; User</h2>
+<p style="font-size:28px;line-height:1.35;font-style:italic;color:#2A2F4A">“How clearly and meaningfully does the submission establish who has the problem, what the problem is, and why it matters?”</p>
+<div style="background:#FFFFFF;border:1px solid #E2E5EF;border-left:6px solid #4055D4;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Extra rule sent with this question</p>
+<p style="font-size:28px;line-height:1.3;color:#2A2F4A">“Direct user evidence is not required for a 5 on Problem &amp; User. A submission that exceptionally clearly establishes the user, problem and consequences can score 5 even without direct user evidence.”</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="flex:1;background:#FEF2F2;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#D93025;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">1</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Weak.</b> User and/or problem is absent, vague or difficult to understand. The submission may jump directly to an AI idea without establishing who needs it or why.</p></div>
+<div style="flex:1;background:#FFF7ED;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#E8750A;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">2</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Limited.</b> A user and problem can be identified, but the framing is superficial, generic or underspecified. Why the problem matters is weakly demonstrated.</p></div>
+<div style="flex:1;background:#FEFCE8;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#C8A000;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">3</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Good.</b> Clearly identifies the affected user(s), a plausible problem they face, and why the problem matters. The situation is sufficiently specific to understand what needs improvement.</p></div>
+<div style="flex:1;background:#F0FDF4;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">4</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Strong.</b> Provides a specific and meaningful account of the user's situation, problem and consequences. The framing demonstrates strong appreciation of the user's context and makes the importance of solving the problem convincing.</p></div>
+<div style="flex:1;background:#F0FDFA;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#00695C;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">5</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Excellent.</b> Presents a compelling, specific and meaningful problem. The user, their situation, what impedes them and the consequences are exceptionally clear, creating a convincing case that this is a problem worth solving.</p></div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:28px;color:#6B7090;text-align:right">04</p>
+
+</section>
+<section class="slide" id="level-und" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:112px 128px 128px;display:grid;grid-template-columns:500px 1fr;grid-template-rows:1fr;gap:36px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:14px;align-self:start">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Question 2 of 4 · word for word as sent to jev.ai</p>
+<h2 style="font-size:48px;font-weight:700;line-height:1.1;letter-spacing:-1px">Problem Understanding</h2>
+<p style="font-size:28px;line-height:1.35;font-style:italic;color:#2A2F4A">“How well does the submission demonstrate that the team investigated and understood the problem rather than simply assuming its initial idea was correct?”</p>
+<div style="background:#FFFFFF;border:1px solid #E2E5EF;border-left:6px solid #4055D4;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Extra rule sent with this question</p>
+<p style="font-size:28px;line-height:1.3;color:#2A2F4A">“Excellent user evidence alone can support a 5. Do not require both excellent user evidence and explicit root-cause analysis, given the limited time available to participants. Do not mechanically require techniques such as Five Whys, personas, journey maps or formal interviews.”</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="flex:1;background:#FEF2F2;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#D93025;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">1</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Weak.</b> Understanding is mostly assumed. Little or no evidence or reasoning demonstrates that the team investigated the problem before pursuing its solution.</p></div>
+<div style="flex:1;background:#FFF7ED;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#E8750A;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">2</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Limited.</b> Shows some attempt to understand the problem—for example users, observations, assumptions or possible causes—but the resulting insight remains superficial or weakly supported.</p></div>
+<div style="flex:1;background:#FEFCE8;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#C8A000;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">3</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Good.</b> Demonstrates meaningful investigation through relevant evidence and/or cause-and-effect reasoning. The resulting understanding provides a reasonable basis for the proposed solution.</p></div>
+<div style="flex:1;background:#F0FDF4;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">4</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Strong.</b> Demonstrates strong understanding through relevant evidence, thoughtful exploration of the problem, assumptions and/or underlying causes. Conclusions are well supported by what the team presents.</p></div>
+<div style="flex:1;background:#F0FDFA;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#00695C;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">5</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Excellent.</b> Demonstrates strong, specific evidence that produces convincing insight into the problem. A single strong and highly relevant piece of evidence can be sufficient. Explicit root-cause analysis is not mandatory if the user/problem evidence itself demonstrates excellent understanding.</p></div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:28px;color:#6B7090;text-align:right">05</p>
+
+</section>
+<section class="slide" id="level-out" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:112px 128px 128px;display:grid;grid-template-columns:500px 1fr;grid-template-rows:1fr;gap:36px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:14px;align-self:start">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Question 3 of 4 · word for word as sent to jev.ai</p>
+<h2 style="font-size:48px;font-weight:700;line-height:1.1;letter-spacing:-1px">Outcomes</h2>
+<p style="font-size:28px;line-height:1.35;font-style:italic;color:#2A2F4A">“Does the team define success as a meaningful change for users or operations rather than merely producing an AI solution?”</p>
+<div style="background:#FFFFFF;border:1px solid #E2E5EF;border-left:6px solid #4055D4;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Extra rule sent with this question</p>
+<p style="font-size:28px;line-height:1.3;color:#2A2F4A">“A compelling outcome that is not explicitly measurable can score 4, but not 5.”</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="flex:1;background:#FEF2F2;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#D93025;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">1</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Weak.</b> Success is essentially the production of an output—for example building an AI application, agent, chatbot or feature. Little indication is given of what becomes better for the user or operation.</p></div>
+<div style="flex:1;background:#FFF7ED;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#E8750A;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">2</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Limited.</b> Implies some benefit or improvement, but it remains vague, solution-centric or insufficiently connected to a meaningful user/operational change.</p></div>
+<div style="flex:1;background:#FEFCE8;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#C8A000;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">3</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Good.</b> Clearly describes the improvement the solution is intended to create for users or operations. Success goes beyond simply having built the solution.</p></div>
+<div style="flex:1;background:#F0FDF4;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">4</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Strong.</b> Defines a specific and meaningful change in user or operational performance and gives a strong indication of how success could be recognised or assessed.</p></div>
+<div style="flex:1;background:#F0FDFA;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#00695C;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">5</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Excellent.</b> Defines a meaningful user or operational outcome and an explicit measurable outcome or success measure showing how the team would know whether the intended change occurred.</p></div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:28px;color:#6B7090;text-align:right">06</p>
+
+</section>
+<section class="slide" id="level-tl" data-transition="fade" style="background:#F6F7FB;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:112px 128px 128px;display:grid;grid-template-columns:500px 1fr;grid-template-rows:1fr;gap:36px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:14px;align-self:start">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Question 4 of 4 · word for word as sent to jev.ai</p>
+<h2 style="font-size:48px;font-weight:700;line-height:1.1;letter-spacing:-1px">Test &amp; Learn</h2>
+<p style="font-size:28px;line-height:1.35;font-style:italic;color:#2A2F4A">“Does the submission demonstrate genuine experimentation and learning rather than assuming the proposed idea will work?”</p>
+<div style="background:#FFFFFF;border:1px solid #E2E5EF;border-left:6px solid #4055D4;border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:28px;font-weight:700;color:#4055D4">Extra rule sent with this question</p>
+<p style="font-size:28px;line-height:1.3;color:#2A2F4A">“Merely performing tests is insufficient for a 5. A score of 5 requires evidence that learning actually influenced the solution, a decision, or the next test.”</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="flex:1;background:#FEF2F2;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#D93025;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">1</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Weak.</b> Assumes the idea or solution will work. No meaningful testing, learning, uncertainty or next-step reasoning is demonstrated.</p></div>
+<div style="flex:1;background:#FFF7ED;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#E8750A;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">2</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Limited.</b> Identifies assumptions, risks, limitations or possible tests, but demonstrates little actual learning or connection between these and subsequent decisions.</p></div>
+<div style="flex:1;background:#FEFCE8;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#C8A000;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">3</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Good.</b> Shows meaningful testing and/or examination of important assumptions and describes what was learned. There is some indication of remaining uncertainty or what should happen next.</p></div>
+<div style="flex:1;background:#F0FDF4;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">4</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Strong.</b> Tests important assumptions or aspects of the solution, extracts meaningful learning, and clearly connects that learning to changes, decisions, remaining uncertainty or appropriate next steps.</p></div>
+<div style="flex:1;background:#F0FDFA;border-radius:12px;padding:12px 20px;display:flex;gap:16px;align-items:center"><p style="font-size:28px;font-weight:800;background:#00695C;color:#FFFFFF;width:44px;height:44px;border-radius:8px;text-align:center;line-height:1.83">5</p><p style="flex:1;font-size:28px;line-height:1.3;color:#2A2F4A"><b style="color:#12162C">Excellent.</b> Demonstrates a clear test → learning → consequence loop. Evidence from testing produced meaningful learning that actually informed the solution, a decision, or what the team would test next.</p></div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:28px;color:#6B7090;text-align:right">07</p>
+
+</section>
+<section class="slide" id="pipeline" data-transition="fade" style="background:#ECEEF6;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<h2 style="font-size:64px;font-weight:700;line-height:1.1;letter-spacing:-1px">From deck to final score: humans have the last word</h2>
+<div style="display:flex;flex-direction:row;gap:8px;align-items:center">
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#4055D4">01</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#12162C">Upload</p><p style="font-size:36px;line-height:1.25;color:#4A4F6A">A .pptx or .pdf</p></div>
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="18" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M14 5 L28 14 L14 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#4055D4">02</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#12162C">Extract</p><p style="font-size:36px;line-height:1.25;color:#4A4F6A">Text plus OCR of images</p></div>
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="18" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M14 5 L28 14 L14 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#12162C;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#8FA0FF">Human</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#F2F3F8">Check text</p><p style="font-size:36px;line-height:1.25;color:#C9CDE4">Fix OCR errors</p></div>
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="18" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M14 5 L28 14 L14 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#4055D4">04</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#12162C">Score</p><p style="font-size:36px;line-height:1.25;color:#4A4F6A">jev.ai rates the 4 questions</p></div>
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="18" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M14 5 L28 14 L14 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#12162C;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#8FA0FF">Human</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#F2F3F8">Review</p><p style="font-size:36px;line-height:1.25;color:#C9CDE4">Confirm or override each score</p></div>
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex:none;align-self:center"><line x1="0" y1="14" x2="18" y2="14" stroke="#4055D4" stroke-width="3"/><path d="M14 5 L28 14 L14 23 Z" fill="#4055D4"/></svg>
+<div style="flex:1;align-self:stretch;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:6px"><p style="font-size:36px;font-weight:700;color:#4055D4">06</p><p style="font-size:40px;font-weight:700;line-height:1.1;color:#12162C">Finalize</p><p style="font-size:36px;line-height:1.25;color:#4A4F6A">Sign off the team's result</p></div>
+</div>
+<div style="display:flex;gap:20px">
+<div style="flex:1;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px 24px"><p style="font-size:36px;line-height:1.3;color:#4A4F6A"><b style="color:#12162C">Low or missing confidence</b> must be reviewed before finalizing</p></div>
+<div style="flex:1;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px 24px"><p style="font-size:36px;line-height:1.3;color:#4A4F6A"><b style="color:#12162C">An override needs</b> a name, a reason and slide references</p></div>
+<div style="flex:1;background:#FFFFFF;border:1px solid #DADDEA;border-radius:16px;padding:20px 24px"><p style="font-size:36px;line-height:1.3;color:#4A4F6A"><b style="color:#12162C">The AI score is kept;</b> the leaderboard uses the human score</p></div>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:36px;color:#6B7090;text-align:right">08</p>
+
+</section>
+<section class="slide" id="output" data-transition="fade" style="background:#ECEEF6;color:#12162C;font-family:'DM Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<h2 style="font-size:64px;font-weight:700;line-height:1.1;letter-spacing:-1px">Team 16: 34/40, with three scores to review</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px">
+<div style="background:#FFFFFF;border:2px solid #E8750A;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:16px;align-items:center"><p style="font-size:40px;font-weight:800;background:#00695C;color:#FFFFFF;width:68px;height:68px;border-radius:12px;text-align:center;line-height:1.7">5</p><p style="font-size:40px;font-weight:800">P&amp;U</p></div>
+<p style="font-size:36px;font-weight:700;color:#9A5800;background:#FFF7ED;border-radius:8px;padding:2px 14px;align-self:start">Medium · 68%</p>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#D93025;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">1</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">0%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#E8750A;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">2</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">0%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#C8A000;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">3</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1;background:#4055D4"></div><div style="flex:99"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">1%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#2E7D32;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">4</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:37;background:#4055D4"></div><div style="flex:63"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">37%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#00695C;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">5</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:62;background:#4055D4"></div><div style="flex:38"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">62%</p></div>
+</div>
+</div>
+<div style="background:#FFFFFF;border:2px solid #E8750A;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:16px;align-items:center"><p style="font-size:40px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:68px;height:68px;border-radius:12px;text-align:center;line-height:1.7">4</p><p style="font-size:40px;font-weight:800">PU</p></div>
+<p style="font-size:36px;font-weight:700;color:#9A5800;background:#FFF7ED;border-radius:8px;padding:2px 14px;align-self:start">Medium · 68%</p>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#D93025;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">1</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">0%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#E8750A;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">2</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:5;background:#4055D4"></div><div style="flex:95"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">5%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#C8A000;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">3</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:18;background:#4055D4"></div><div style="flex:82"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">18%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#2E7D32;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">4</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:67;background:#4055D4"></div><div style="flex:33"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">67%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#00695C;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">5</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:10;background:#4055D4"></div><div style="flex:90"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">10%</p></div>
+</div>
+</div>
+<div style="background:#FFFFFF;border:2px solid #DADDEA;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:16px;align-items:center"><p style="font-size:40px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:68px;height:68px;border-radius:12px;text-align:center;line-height:1.7">4</p><p style="font-size:40px;font-weight:800">O</p></div>
+<p style="font-size:36px;font-weight:700;color:#2E7D32;background:#F0FDF4;border-radius:8px;padding:2px 14px;align-self:start">High · 84%</p>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#D93025;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">1</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">0%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#E8750A;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">2</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:2;background:#4055D4"></div><div style="flex:98"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">2%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#C8A000;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">3</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:12;background:#4055D4"></div><div style="flex:88"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">12%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#2E7D32;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">4</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:83;background:#4055D4"></div><div style="flex:17"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">83%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#00695C;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">5</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:3;background:#4055D4"></div><div style="flex:97"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">3%</p></div>
+</div>
+</div>
+<div style="background:#FFFFFF;border:2px solid #E8750A;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;gap:16px;align-items:center"><p style="font-size:40px;font-weight:800;background:#2E7D32;color:#FFFFFF;width:68px;height:68px;border-radius:12px;text-align:center;line-height:1.7">4</p><p style="font-size:40px;font-weight:800">T&amp;L</p></div>
+<p style="font-size:36px;font-weight:700;color:#9A5800;background:#FFF7ED;border-radius:8px;padding:2px 14px;align-self:start">Medium · 64%</p>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#D93025;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">1</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">0%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#E8750A;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">2</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:1;background:#4055D4"></div><div style="flex:99"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">1%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#C8A000;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">3</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:3;background:#4055D4"></div><div style="flex:97"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">3%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#2E7D32;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">4</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:58;background:#4055D4"></div><div style="flex:42"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">58%</p></div>
+<div style="display:flex;gap:10px;align-items:center"><p style="font-size:36px;font-weight:800;color:#FFFFFF;background:#00695C;width:48px;height:48px;border-radius:8px;text-align:center;line-height:1.33">5</p><div style="flex:1;display:flex;flex-direction:row;height:14px;background:#E2E5EF;border-radius:99px;overflow:hidden"><div style="flex:38;background:#4055D4"></div><div style="flex:62"></div></div><p style="font-size:36px;color:#4A4F6A;width:84px;text-align:right">38%</p></div>
+</div>
+</div>
+</div>
+<p style="font-size:36px;line-height:1.35;color:#4A4F6A"><b style="color:#12162C">Review:</b> P&amp;U (5 or 4?), PU (4 or 3?) and T&amp;L (4 or 5?). Only Outcomes is high confidence.</p>
+<div style="display:flex;gap:16px;align-items:center">
+<p style="font-size:36px;color:#2E7D32;background:#F0FDF4;border-radius:8px;padding:2px 14px">High 80%+</p>
+<p style="font-size:36px;color:#9A5800;background:#FFF7ED;border-radius:8px;padding:2px 14px">Medium 50–79%</p>
+<p style="font-size:36px;color:#D93025;background:#FEF2F2;border-radius:8px;padding:2px 14px">Low under 50%: must review</p>
+</div>
+<p style="position:absolute;right:128px;bottom:56px;width:200px;font-size:36px;color:#6B7090;text-align:right">09</p>
+
+</section>
+</div></div>
+<div id="bar">
+<button id="prev" aria-label="Previous slide">&#8592;</button>
+<span id="count"></span>
+<button id="next" aria-label="Next slide">&#8594;</button>
+<button id="fs" aria-label="Full screen">Full screen</button>
+</div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var deck=document.getElementById('deck'), i=0;
+  function fit(){
+    var s=Math.min(window.innerWidth/1920, window.innerHeight/1080);
+    deck.style.transform='scale('+s+')';
+  }
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach(function(el,k){el.classList.toggle('active',k===i)});
+    document.getElementById('count').textContent=(i+1)+' / '+slides.length;
+    document.getElementById('progress').style.width=((i+1)/slides.length*100)+'%';
+    if(location.hash!=='#'+(i+1)) history.replaceState(null,'','#'+(i+1));
+  }
+  function go(d){show(i+d)}
+  document.addEventListener('keydown',function(e){
+    if(['ArrowRight','PageDown',' ','Enter'].indexOf(e.key)>=0){e.preventDefault();go(1)}
+    else if(['ArrowLeft','PageUp','Backspace'].indexOf(e.key)>=0){e.preventDefault();go(-1)}
+    else if(e.key==='Home')show(0);
+    else if(e.key==='End')show(slides.length-1);
+    else if(e.key==='f'||e.key==='F')toggleFs();
+  });
+  document.getElementById('stage').addEventListener('click',function(e){
+    go(e.clientX < window.innerWidth/3 ? -1 : 1);
+  });
+  document.getElementById('prev').onclick=function(){go(-1)};
+  document.getElementById('next').onclick=function(){go(1)};
+  function toggleFs(){
+    if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}
+    else{document.exitFullscreen&&document.exitFullscreen()}
+  }
+  document.getElementById('fs').onclick=toggleFs;
+  var x0=null;
+  document.addEventListener('touchstart',function(e){x0=e.touches[0].clientX},{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(x0===null)return; var dx=e.changedTouches[0].clientX-x0;
+    if(Math.abs(dx)>40)go(dx<0?1:-1); x0=null;
+  });
+  window.addEventListener('resize',fit);
+  window.addEventListener('hashchange',function(){var n=parseInt(location.hash.slice(1),10);if(n)show(n-1)});
+  fit();
+  var h=parseInt(location.hash.slice(1),10);
+  show(h?h-1:0);
+})();
+</script>
+</body>
+</html>
