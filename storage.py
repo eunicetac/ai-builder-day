@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -20,6 +21,31 @@ def load_results() -> list:
 
 
 def store_result(result: dict) -> list:
+    def update(results):
+        previous = next((r for r in results if r.get("file") == result["file"]), None)
+        if previous and (previous.get("review_history") or previous.get("finalization")):
+            result["review_history"] = list(previous.get("review_history", [])) + [{
+                "action": "rejudged", "at": datetime.now(timezone.utc).isoformat(),
+                "previous_result": {k: v for k, v in previous.items() if k != "review_history"},
+            }]
+        return [r for r in results if r.get("file") != result["file"]] + [result]
+    return mutate_results(update)
+
+
+def update_result(filename: str, update) -> dict:
+    changed = []
+    def apply(results):
+        for index, result in enumerate(results):
+            if result.get("file") == filename:
+                changed.append(update(result))
+                results[index] = changed[0]
+                return results
+        raise KeyError("Submission not found")
+    mutate_results(apply)
+    return changed[0]
+
+
+def mutate_results(update) -> list:
     """Lock the entire read/update/write cycle and atomically replace the file."""
     path = results_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,8 +53,7 @@ def store_result(result: dict) -> list:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
             results = load_results()
-            results = [entry for entry in results if entry.get("file") != result["file"]]
-            results.append(result)
+            results = update(results)
             temporary_path = None
             try:
                 with tempfile.NamedTemporaryFile(

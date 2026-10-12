@@ -65,5 +65,28 @@ is no longer used. Boundaries must satisfy `0 <= LOW < HIGH <= 1`.
 Saved results get their bands refreshed when loaded. Scores and totals stay
 unchanged. The compatibility `borderline` flag now marks Medium/Low for review.
 Band guidance is Routine review (High), Review recommended (Medium), and Review
-required before finalizing (Low); the human review/finalization workflow is not
-yet implemented. Calibrate these initial thresholds using human assessments.
+required before finalizing (Low); the Results review workflow enforces required reviews before finalization. Calibrate these initial thresholds using human assessments.
+
+
+## Human judge review
+
+In Results, choose **Review / override** for a criterion. The panel shows the
+original AI score/confidence/distribution, all rubric anchors, and the text used
+for the assessment. Enter your name, then confirm the AI score or choose a human
+score from 1–5. Overrides require a rationale and slide/page references. Reset
+returns that criterion to the AI score and pending review without deleting history.
+
+The leaderboard uses human scores where available and recalculates totals;
+original AI scores/totals remain unchanged. Low and Unavailable confidence
+criteria require confirmation or override before **Finalize submission** is
+allowed. Medium review is recommended. **Needs review only** filters pending
+Medium, Low, or Unavailable criteria; the summary counts pending review items.
+Editing a finalized result clears finalization; rejudging archives previous
+reviews/assessment and starts a fresh provisional result. Concurrent stale
+reviews are rejected; use **Refresh assessment** and review the latest version.
+
+As requested for this prototype, reviews have no password or login. Reviewer
+names are self-entered, not authenticated identities. Review history and assessed
+text are stored with results on `/data/results.json`. New assessments save the
+exact text sent to Jev; older entries without saved text need the original deck
+or a new assessment. The original uploaded file is not retained.

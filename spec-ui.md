@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — UI Spec
 
-Version 1.2 · 12 October 2026
+Version 1.3 · 12 October 2026
 
 This document is the complete UI specification for the PC8 Product Thinking AI
 Judge web application. Implement exactly what is described here. Do not add
@@ -185,7 +185,8 @@ The UI uses the same result schema regardless of storage location.
 - Teams judged (count of entries returned by `/api/results`)
 - Highest score /40
 - Average score /40 (rounded to nearest integer)
-- Confidence review flags (count of criteria across all teams where `borderline: true`)
+- Confidence review flags (count of pending Medium/Low/Unavailable criteria
+  across all teams, using `pending_review`)
 
 Each card: white, border `--border`, border-radius 10px, padding 1.1rem 1.2rem.
 Value: 1.7rem, weight 800. Label: 0.72rem, `--ink-3`, margin-top .35rem.
@@ -211,7 +212,8 @@ Column widths:
 Header row: background `--surface`, border-bottom `--border`, padding .6rem .75rem,
 font .65rem weight 700, `--ink-3`, uppercase, letter-spacing .05em.
 
-Data rows: sorted by weighted_score descending. Padding .75rem, border-bottom `--border`,
+Data rows: sorted by effective_weighted_score descending (human score where
+reviewed, AI score otherwise). Padding .75rem, border-bottom `--border`,
 hover background #fafbff. Rows are **clickable** — clicking a row selects that team
 for the Criterion breakdown section. Selected row highlighted #eef1ff.
 
@@ -227,7 +229,7 @@ amber, Low red, Unavailable gray. Its accessible label and tooltip name the band
 Raw cell: "{raw_total}/20", weight 700, `--ink-2`.
 
 Score cell: flex row — bold number (1rem, weight 800) + progress bar (4px height,
-`--accent` fill, `--border` background, border-radius 99px). Bar width = weighted_score / 40 × 100%.
+`--accent` fill, `--border` background, border-radius 99px). Bar width = effective_weighted_score / 40 × 100%.
 
 **Mobile:** table is hidden. A card list (`.mobile-lb`) is shown instead — one card per team:
 - Rank + team name + filename + score /40 in a header row
@@ -250,7 +252,7 @@ border-radius 6px, padding .5rem .6rem, text-align center.
 - Criterion label (0.65rem, `--ink-3`)
 - Score badge
 - Confidence band badge: High green, Medium amber, Low red, or Unavailable gray.
-- If distribution present: "Score {score} probability: {N}%", using the
+- If distribution present: "AI score {score} probability: {N}%", using the
   awarded score's distribution entry and the same rounding as its chart bar.
 - If confidence present: "Model confidence: {N}%" in `--ink-3`, 0.72rem.
   Tooltip explains that confidence summarizes the full distribution and is
@@ -424,11 +426,50 @@ Show High (default ≥80%, green), Medium (50–<80%, amber), Low (<50%, red),
 or Unavailable (gray) for every criterion, using the backend `confidence_band`.
 Keep the numeric Model confidence and chart probabilities distinct.
 Tooltips provide guidance: Routine review, Review recommended, Review required
-before finalizing, or Review manually for Unavailable. These labels do not
-implement a review workflow or prevent finalization.
+before finalizing, or Review manually for Unavailable. Low and Unavailable criteria require human review before finalization; Medium
+review remains recommended.
 
 The existing `borderline` field is true for Medium/Low. The summary counts these
 criteria as Confidence review flags; the Judge footer lists them as requiring
 or recommending review. Missing confidence is not counted as Medium/Low and
 is explicitly labeled Unavailable. Results loaded from storage are refreshed
 using `CONFIDENCE_LOW_THRESHOLD` and `CONFIDENCE_HIGH_THRESHOLD`.
+
+
+## 12. Human review interface
+
+Results toolbar includes a **Needs review only** checkbox. It filters submissions
+with pending Medium/Low/Unavailable criteria. Summary statistics cover all
+submissions and use effective scores; review flags count pending review items.
+Desktop rows and mobile cards show provisional/reviewed/finalized status.
+
+Both breakdown layouts include **Review / override** per criterion and
+**Review history / finalize** per submission. Score badges show effective scores;
+reviewed criteria have a "Human confirmed" or "Human override (AI: N)" annotation.
+Confidence and charts remain the original AI assessment. Show the original AI
+total alongside the effective total in the breakdown.
+
+Open a native modal dialog (max 900px/95vw, max height 90vh, scrollable, responsive
+single column on mobile). Include title/team/file/status, current and AI totals,
+reviewer name, criterion selector, AI/current score and review status, confidence
+band/number, distribution, human score selector 1–5, rationale textarea, and
+slide/page reference field. Display all five canonical anchors and the saved
+assessed text; older missing text gets a clear explanation. All input and deck
+text is rendered as escaped text.
+
+Actions: **Confirm AI score**, **Save override**, and **Reset to AI / pending**
+(when reviewed). Reviewer name is always required; overrides require rationale
+and evidence references. Save buttons disable during a request. Validation or
+conflict errors remain visible in the dialog without discarding entered text.
+**Refresh assessment** reloads the latest version; Close/Escape dismisses.
+The reviewer name is remembered in session storage for this browser tab/session.
+
+Show required pending criteria and **Finalize submission**, disabled until they
+are reviewed and when already finalized. Display who finalized and when. Editing
+a review clears finalization. Medium criteria may still be reviewed afterwards.
+Expandable history lists reviewer/time/action, score changes, rationales,
+references, and archived rejudged assessments. After saving, refresh the dialog,
+leaderboard, totals/ranks, summaries, and review filter immediately.
+
+No password/login flow is included for this prototype. Reviewer names are
+self-entered; review UI does not imply authenticated identity.

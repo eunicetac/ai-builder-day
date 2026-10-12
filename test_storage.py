@@ -25,7 +25,9 @@ class StorageTests(unittest.TestCase):
         result = {"file": "deck.pdf", "team": "Alpha", "criteria": {}}
         storage.store_result(result)
         self.assertEqual(judge.load_results(), [result])
-        self.assertEqual(app.app.test_client().get("/api/results").json, [result])
+        response = app.app.test_client().get("/api/results").json
+        self.assertEqual(response[0]["file"], result["file"])
+        self.assertEqual(response[0]["team"], result["team"])
         self.assertEqual(json.loads(self.path.read_text()), [result])
 
     def test_same_filename_is_replaced(self):

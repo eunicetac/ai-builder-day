@@ -407,6 +407,7 @@ def judge_file(pptx_path: Path, team: str) -> dict:
     criteria = score_deck(content)
     # TODO: LLM rationale step
     result = build_result(team, pptx_path.name, criteria)
+    result["assessed_text"] = content
     return result
 
 

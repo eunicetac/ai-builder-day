@@ -7,9 +7,11 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template_string, request
 
-from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, refresh_confidence_flags, score_deck
+from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, score_deck
 
-from storage import load_results as read_results, store_result
+from storage import load_results as read_results, store_result, update_result
+from judge import CRITERIA
+from review import summarize_result, review_criterion, finalize_result, ReviewConflict
 
 app = Flask(__name__)
 
@@ -202,6 +204,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .result-footer{border-top:1px solid var(--border);margin-top:1rem;padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--ink-3)}
 .result-flags{color:#E8750A;font-weight:600}
 .see-results-btn{display:inline-block;margin-top:1rem;padding:.45rem .9rem;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer}
+
+/* Human review */
+.review-toolbar{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-bottom:1rem;font-size:.8rem;color:var(--ink-2)}
+.review-toolbar label{font-weight:600;display:flex;gap:.4rem;align-items:center}
+.review-button{padding:.4rem .65rem;border:1px solid var(--border);background:var(--white);color:var(--accent);border-radius:6px;cursor:pointer;font-size:.75rem;margin-top:.4rem}
+.review-button:disabled{opacity:.5;cursor:not-allowed}
+.human-note{display:block;font-size:.65rem;color:var(--accent);margin-top:.2rem}
+.review-status{font-size:.7rem;color:var(--ink-2);margin-top:.2rem}
+.review-dialog{border:1px solid var(--border);border-radius:12px;padding:1.4rem;width:min(900px,95vw);max-height:90vh;margin:auto;color:var(--ink);background:var(--white)}
+.review-dialog::backdrop{background:rgba(18,22,44,.45)}
+.review-head{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:1rem}
+.review-columns{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.review-form label{display:block;font-size:.8rem;font-weight:600;margin-top:.8rem}
+.review-form input,.review-form select,.review-form textarea{display:block;width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;margin-top:.3rem;font:inherit}
+.review-form textarea{min-height:85px}
+.review-evidence{white-space:pre-wrap;max-height:45vh;overflow:auto;background:var(--surface);padding:.8rem;border-radius:6px;font-family:monospace;font-size:.75rem}
+.review-anchors{font-size:.78rem;margin-top:1rem;line-height:1.5}
+.review-anchors p{margin:.5rem 0}
+.review-history{font-size:.78rem;margin-top:1rem;white-space:pre-wrap}
+.review-error{color:#D93025;margin-top:.7rem;font-size:.82rem}
+@media(max-width:768px){.review-columns{grid-template-columns:1fr}.review-dialog{padding:1rem}.review-evidence{max-height:30vh}}
 
 /* Mobile leaderboard cards */
 .mobile-lb{display:none}
@@ -396,6 +419,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 
   <!-- ========================== PAGE: RESULTS ========================== -->
   <div class="content page" id="page-results">
+    <div class="review-toolbar"><label><input type="checkbox" id="needs-review" onchange="renderResults()"> Needs review only</label><span>Human reviews update competition scores; AI assessments are preserved.</span></div>
     <div id="results-content"><div style="color:var(--ink-3);padding:2rem 0">Loading…</div></div>
   </div>
 
@@ -470,6 +494,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   <a href="#" data-page="preview"><span class="mobile-nav-icon">≡</span>Preview</a>
 </nav>
 
+<dialog id="review-dialog" class="review-dialog" aria-labelledby="review-dialog-title">
+  <div id="review-dialog-content"></div>
+</dialog>
+
 <script>
 const CRITERIA_ORDER = ["problem_and_user","problem_understanding","outcomes","test_and_learn"];
 const CRITERIA_LABELS = {
@@ -542,12 +570,20 @@ function confidenceDot(c) {
 function criterionMetrics(c, className) {
   const probability = c?.distribution?.[c.score - 1];
   const scoreProbability = Number.isFinite(probability)
-    ? `<div class="${className}">Score ${c.score} probability: ${Math.round(probability*100)}%</div>`
+    ? `<div class="${className}">AI score ${c.score} probability: ${Math.round(probability*100)}%</div>`
     : '';
   const confidence = c?.confidence != null
     ? `<div class="${className}" title="Summarizes how concentrated the full score distribution is; it is not the probability of one score level.">Model confidence: ${Math.round(c.confidence*100)}%</div>`
     : '';
   return scoreProbability + confidence;
+}
+
+function resultScore(r) { return r.effective_weighted_score ?? r.weighted_score; }
+function resultRaw(r) { return r.effective_raw_total ?? r.raw_total; }
+function resultBadge(c) {
+  const score = c.effective_score ?? c.score;
+  const note = c.human_review ? `<span class="human-note">${c.human_review.status === 'overridden' ? `Human override (AI: ${c.score})` : 'Human confirmed'}</span>` : '';
+  return `<span>${badge(score)}${note}</span>`;
 }
 
 let _sortedResults = [];
@@ -561,6 +597,7 @@ async function renderResults() {
   try {
     const resp = await fetch('/api/results');
     results = await resp.json();
+    if (!resp.ok || !Array.isArray(results)) throw new Error('Invalid results response');
   } catch(e) {
     container.innerHTML = '<div style="color:#D93025;padding:2rem 0">Failed to load results.</div>';
     return;
@@ -577,13 +614,15 @@ async function renderResults() {
     return;
   }
 
-  _sortedResults = [...results].sort((a,b) => b.weighted_score - a.weighted_score);
-  _selectedIdx = 0;
+  const previousFile = _sortedResults[_selectedIdx]?.file;
+  const ranked = [...results].sort((a,b) => resultScore(b) - resultScore(a));
+  _sortedResults = document.getElementById('needs-review').checked ? ranked.filter(r => r.pending_review?.length) : ranked;
+  _selectedIdx = Math.max(0, _sortedResults.findIndex(r => r.file === previousFile));
 
   const sorted = _sortedResults;
-  const highest = Math.max(...results.map(r => r.weighted_score));
-  const avg = Math.round(results.reduce((s,r) => s+r.weighted_score, 0) / results.length);
-  const flags = results.reduce((s,r) => s + CRITERIA_ORDER.filter(k => r.criteria[k]?.borderline).length, 0);
+  const highest = Math.max(...results.map(r => resultScore(r)));
+  const avg = Math.round(results.reduce((s,r) => s+resultScore(r), 0) / results.length);
+  const flags = results.reduce((s,r) => s + CRITERIA_ORDER.filter(k => r.pending_review?.includes(k)).length, 0);
   const lastDate = results.reduce((latest, r) => r.judged_at > latest ? r.judged_at : latest, results[0].judged_at);
   const lastDateFmt = new Date(lastDate).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
 
@@ -598,22 +637,22 @@ async function renderResults() {
     </div>`;
 
   const tableRows = sorted.map((r, i) => {
-    const rank = i + 1;
+    const rank = ranked.indexOf(r) + 1;
     const rankCls = rank <= 2 ? 'rank-num rank-top' : 'rank-num';
     const critCells = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
       const dot = confidenceDot(c);
-      return `<td class="col-criterion"><div class="criterion-cell">${badge(c.score)}${dot}</div></td>`;
+      return `<td class="col-criterion"><div class="criterion-cell">${resultBadge(c)}${dot}</div></td>`;
     }).join('');
-    const barW = Math.round((r.weighted_score / 40) * 100);
+    const barW = Math.round((resultScore(r) / 40) * 100);
     return `<tr data-idx="${i}" onclick="selectBreakdown(${i})" style="cursor:pointer">
       <td class="col-rank"><span class="${rankCls}">${rank}</span></td>
-      <td class="col-team"><div class="team-name">${esc(r.team)}</div><div class="team-file">${esc(r.file)}</div></td>
+      <td class="col-team"><div class="team-name">${esc(r.team)}</div><div class="team-file">${esc(r.file)}</div><div class="review-status">${esc(r.submission_status || 'provisional')}</div></td>
       ${critCells}
-      <td class="col-raw"><span class="raw-score">${r.raw_total}/20</span></td>
+      <td class="col-raw"><span class="raw-score">${resultRaw(r)}/20</span></td>
       <td class="col-score">
         <div class="score-cell">
-          <span class="score-num">${r.weighted_score.toFixed(0)}</span>
+          <span class="score-num">${resultScore(r).toFixed(0)}</span>
           <div class="score-bar-wrap"><div class="score-bar" style="width:${barW}%"></div></div>
         </div>
       </td>
@@ -638,14 +677,14 @@ async function renderResults() {
     </div>`;
 
   const mobileCards = sorted.map((r, i) => {
-    const rank = i + 1;
+    const rank = ranked.indexOf(r) + 1;
     const rankCls = rank <= 2 ? 'mlb-rank mlb-rank-top' : 'mlb-rank';
     const crits = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
       const dot = confidenceDot(c);
       return `<div class="mlb-crit">
         <span class="mlb-crit-label">${CRITERIA_LABELS[k].abbrev}</span>
-        ${badge(c.score)}${dot}
+        ${resultBadge(c)}${dot}
       </div>`;
     }).join('');
     return `<div class="mlb-card" data-idx="${i}" onclick="selectBreakdown(${i})">
@@ -653,9 +692,9 @@ async function renderResults() {
         <span class="${rankCls}">#${rank}</span>
         <div class="mlb-team">
           <span class="mlb-name">${esc(r.team)}</span>
-          <span class="mlb-file">${esc(r.file)}</span>
+          <span class="mlb-file">${esc(r.file)} · ${esc(r.submission_status || 'provisional')}</span>
         </div>
-        <span class="mlb-score">${r.weighted_score.toFixed(0)}<span class="mlb-score-denom">/40</span></span>
+        <span class="mlb-score">${resultScore(r).toFixed(0)}<span class="mlb-score-denom">/40</span></span>
       </div>
       <div class="mlb-criteria">${crits}</div>
     </div>`;
@@ -664,7 +703,8 @@ async function renderResults() {
   const mobileLbHtml = `<div class="mobile-lb" id="mobile-lb">${mobileCards}</div>`;
 
   container.innerHTML = summaryHtml + tableHtml + mobileLbHtml + '<div id="breakdown-section"></div>';
-  renderBreakdown(0);
+  if (_sortedResults.length) renderBreakdown(_selectedIdx);
+  else container.insertAdjacentHTML('beforeend', '<p>No submissions need review.</p>');
 }
 
 function breakdownCard(r) {
@@ -676,16 +716,16 @@ function breakdownCard(r) {
     const dist = distBars(c?.distribution);
     return `<div class="mini-cell">
       <div class="mini-label">${lbl}</div>
-      ${badge(c.score)}
-      ${bl}${conf}${dist}
+      ${resultBadge(c)}
+      ${bl}${conf}${dist}<button class="review-button" onclick="openReview(_selectedIdx, '${k}')">Review / override</button>
     </div>`;
   }).join('');
   return `<div class="breakdown-card" style="grid-column:1/-1">
     <div class="breakdown-header">
       <span class="breakdown-team">${esc(r.team)}</span>
-      <span class="breakdown-wscore">${r.weighted_score.toFixed(0)}/40 · Raw ${r.raw_total}/20</span>
+      <span class="breakdown-wscore">${resultScore(r).toFixed(0)}/40 · Raw ${resultRaw(r)}/20</span>
     </div>
-    <div class="mini-grid">${cells}</div>
+    <div class="review-status">${esc(r.submission_status || 'provisional')} · AI total ${r.weighted_score}/40</div><div class="mini-grid">${cells}</div><button class="review-button" onclick="openReview(_selectedIdx)">Review history / finalize</button>
   </div>`;
 }
 
@@ -719,21 +759,118 @@ function renderBreakdown(idx) {
       const conf = criterionMetrics(c, 'mbd-conf');
       return `<div class="mbd-cell">
         <div class="mbd-label">${CRITERIA_LABELS[k].label}</div>
-        ${badge(c.score)}
+        ${resultBadge(c)}
         ${bl}${conf}
-        ${distBars(c?.distribution)}
+        ${distBars(c?.distribution)}<button class="review-button" onclick="openReview(_selectedIdx, '${k}')">Review / override</button>
       </div>`;
     }).join('');
     const mbd = document.createElement('div');
     mbd.id = 'mobile-breakdown';
     mbd.className = 'mobile-breakdown';
-    mbd.innerHTML = `<div class="mbd-header">${esc(r.team)} · ${r.weighted_score.toFixed(0)}/40 · Raw ${r.raw_total}/20</div><div class="mbd-grid">${cells}</div>`;
+    mbd.innerHTML = `<div class="mbd-header">${esc(r.team)} · ${resultScore(r).toFixed(0)}/40 · Raw ${resultRaw(r)}/20</div><div class="review-status">${esc(r.submission_status || 'provisional')} · AI total ${r.weighted_score}/40</div><div class="mbd-grid">${cells}</div><button class="review-button" onclick="openReview(_selectedIdx)">Review history / finalize</button>`;
     selectedCard.after(mbd);
   }
 }
 
 function selectBreakdown(idx) {
   renderBreakdown(idx);
+}
+
+let _reviewData = null;
+let _reviewKey = null;
+let _reviewBusy = false;
+
+async function openReview(idx, key, filename) {
+  if (_reviewBusy) return;
+  const dialog = document.getElementById('review-dialog');
+  const content = document.getElementById('review-dialog-content');
+  content.innerHTML = '<div class="review-head"><h2 id="review-dialog-title">Loading review…</h2><button class="review-button" onclick="closeReview()">Close</button></div>';
+  if (!dialog.open) dialog.showModal();
+  try {
+    const resp = await fetch('/api/results/detail?file=' + encodeURIComponent(filename || _sortedResults[idx].file));
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Could not load submission');
+    _reviewData = data;
+    _reviewKey = key || CRITERIA_ORDER[0];
+    renderReviewDialog();
+  } catch (error) {
+    content.insertAdjacentHTML('beforeend', `<p class="review-error" role="alert">${esc(error.message)}</p>`);
+  }
+}
+
+function closeReview() {
+  if (!_reviewBusy) document.getElementById('review-dialog').close();
+}
+
+function renderReviewDialog() {
+  const r = _reviewData.result;
+  const c = r.criteria[_reviewKey];
+  const human = c.human_review;
+  const reviewer = document.getElementById('reviewer-name')?.value || sessionStorage.getItem('reviewer-name') || '';
+  const history = (r.review_history || []).map(entry => {
+    if (entry.action === 'rejudged') return `<p>${esc(entry.at)} · Rejudged; previous reviews archived. Previous AI total: ${entry.previous_result?.weighted_score ?? '?'} /40.</p>`;
+    const review = entry.review;
+    return `<p>${esc(entry.at)} · ${esc(entry.reviewer)} · ${esc(entry.action)} ${esc(CRITERIA_LABELS[entry.criterion]?.label || '')}${review ? ` · score ${review.score}` : ''}
+      ${review?.rationale ? `<br>Rationale: ${esc(review.rationale)}` : ''}${review?.evidence_refs ? `<br>Evidence: ${esc(review.evidence_refs)}` : ''}</p>`;
+  }).join('') || '<p>No human reviews yet.</p>';
+  const required = (r.required_review || []).map(k => CRITERIA_LABELS[k].label).join(', ');
+  document.getElementById('review-dialog-content').innerHTML = `
+    <div class="review-head"><h2 id="review-dialog-title">Review — ${esc(r.team)}</h2><div><button class="review-button" onclick="openReview(0,_reviewKey,_reviewData.result.file)">Refresh assessment</button><button class="review-button" onclick="closeReview()">Close</button></div></div>
+    <p>${esc(r.file)} · ${esc(r.submission_status)} · Current ${resultScore(r)}/40 · AI ${r.weighted_score}/40</p>
+    <div class="review-columns">
+      <div class="review-form">
+        <label for="reviewer-name">Reviewer name</label><input id="reviewer-name" maxlength="100" value="${esc(reviewer)}" autocomplete="name">
+        <label for="review-criterion">Criterion</label><select id="review-criterion" onchange="_reviewKey=this.value;renderReviewDialog()">${CRITERIA_ORDER.map(k => `<option value="${k}" ${k===_reviewKey?'selected':''}>${CRITERIA_LABELS[k].label}</option>`).join('')}</select>
+        <p>AI: ${c.score} — ${SCORE_LABELS[c.score]} · Current: ${c.effective_score} · ${esc(c.review_status)}</p>
+        ${confidenceIndicator(c)}${criterionMetrics(c, 'mini-conf')}${distBars(c.distribution)}
+        ${human ? `<p>Reviewed by ${esc(human.reviewer)} at ${esc(human.reviewed_at)}</p>` : ''}
+        <label for="review-score">Human score</label><select id="review-score">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===c.effective_score?'selected':''}>${n} — ${SCORE_LABELS[n]}</option>`).join('')}</select>
+        <label for="review-rationale">Rationale (required for override)</label><textarea id="review-rationale" maxlength="5000">${esc(human?.rationale || '')}</textarea>
+        <label for="review-evidence">Slide/page references (required for override)</label><input id="review-evidence" maxlength="2000" placeholder="e.g. Slides 2 and 4, or PDF page 3" value="${esc(human?.evidence_refs || '')}">
+        <button class="review-button" data-review-save onclick="saveReview('confirm')">Confirm AI score</button>
+        <button class="review-button" data-review-save onclick="saveReview('override')">Save override</button>
+        ${human ? '<button class="review-button" data-review-save onclick="saveReview(\'reset\')">Reset to AI / pending</button>' : ''}
+        <div class="review-anchors"><strong>Rubric anchors</strong>${_reviewData.anchors[_reviewKey].map(a=>`<p>${esc(a)}</p>`).join('')}</div>
+      </div>
+      <div><h3>Assessed slide/page text</h3><p class="mini-conf">This is the text used for this AI assessment, including any edits before judging.</p><pre class="review-evidence">${esc(r.assessed_text || 'This older assessment has no saved text. Consult the original deck, or rejudge to save its extraction.')}</pre></div>
+    </div>
+    <p>${required ? `Review required before finalizing: ${esc(required)}.` : 'Required reviews complete. Medium-confidence review remains recommended.'}</p>
+    ${r.finalization ? `<p>Finalized by ${esc(r.finalization.reviewer)} at ${esc(r.finalization.at)}. Editing a review makes the submission provisional again.</p>` : ''}
+    <button class="review-button" data-review-save onclick="saveReview('finalize')" ${required || r.finalization ? 'disabled' : ''}>Finalize submission</button>
+    <div id="review-error" class="review-error" role="alert"></div>
+    <details class="review-history"><summary>Review history (${(r.review_history || []).length})</summary>${history}</details>`;
+}
+
+async function saveReview(action) {
+  if (_reviewBusy) return;
+  const r = _reviewData.result;
+  const reviewer = document.getElementById('reviewer-name').value.trim();
+  const data = {file:r.file, judged_at:r.judged_at, revision:r.review_revision, reviewer,
+    criterion:_reviewKey, action, score:Number(document.getElementById('review-score').value),
+    rationale:document.getElementById('review-rationale').value, evidence_refs:document.getElementById('review-evidence').value};
+  _reviewBusy = true;
+  const buttons = [...document.querySelectorAll('[data-review-save]')].map(b => [b, b.disabled]);
+  buttons.forEach(([b]) => b.disabled = true);
+  const criterionSelect = document.getElementById('review-criterion');
+  criterionSelect.disabled = true;
+  const errorBox = document.getElementById('review-error');
+  errorBox.textContent = '';
+  try {
+    const resp = await fetch(action === 'finalize' ? '/api/results/finalize' : '/api/results/review', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    const updated = await resp.json();
+    if (!resp.ok) throw new Error(updated.error || 'Could not save review');
+    sessionStorage.setItem('reviewer-name', reviewer);
+    _reviewData.result = updated;
+    renderReviewDialog();
+    await renderResults();
+  } catch (error) {
+    document.getElementById('review-error').textContent = error.message;
+  } finally {
+    _reviewBusy = false;
+    buttons.forEach(([b, disabled]) => { if (b.isConnected) b.disabled = disabled; });
+    if (criterionSelect.isConnected) criterionSelect.disabled = false;
+  }
 }
 
 // --- Judge page ---
@@ -963,7 +1100,7 @@ navigate('criteria');
 
 
 def load_results():
-    return refresh_confidence_flags(read_results())
+    return [summarize_result(result) for result in read_results()]
 
 
 @app.route("/")
@@ -1002,6 +1139,7 @@ def api_judge():
             "raw_total": raw_total,
             "weighted_score": weighted_score,
             "criteria": criteria,
+            "assessed_text": content,
         }
 
         store_result(result)
@@ -1016,7 +1154,43 @@ def api_judge():
 
 @app.route("/api/results")
 def api_results():
-    return jsonify(load_results())
+    return jsonify([{k: v for k, v in r.items() if k not in ("assessed_text", "review_history")}
+                    for r in load_results()])
+
+
+@app.route("/api/results/detail")
+def api_result_detail():
+    result = next((r for r in load_results() if r.get("file") == request.args.get("file")), None)
+    if result is None:
+        return jsonify({"error": "Submission not found"}), 404
+    return jsonify({"result": result, "anchors": {k: CRITERIA[k]["criteria"] for k in CRITERIA_ORDER}})
+
+
+def apply_human_review(operation):
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("file"), str):
+        return jsonify({"error": "A JSON request with a submission filename is required"}), 400
+    try:
+        result = update_result(data["file"], lambda r: operation(r, data))
+        return jsonify(result)
+    except ReviewConflict as exc:
+        return jsonify({"error": str(exc)}), 409
+    except KeyError:
+        return jsonify({"error": "Submission not found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except OSError:
+        return jsonify({"error": "Could not save the review. Please try again."}), 500
+
+
+@app.route("/api/results/review", methods=["POST"])
+def api_review():
+    return apply_human_review(review_criterion)
+
+
+@app.route("/api/results/finalize", methods=["POST"])
+def api_finalize():
+    return apply_human_review(finalize_result)
 
 
 @app.route("/api/judge-text", methods=["POST"])
@@ -1039,6 +1213,7 @@ def api_judge_text():
             "raw_total": raw_total,
             "weighted_score": weighted_score,
             "criteria": criteria,
+            "assessed_text": text,
         }
         store_result(result)
         return jsonify(result)

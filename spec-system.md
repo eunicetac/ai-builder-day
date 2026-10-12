@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — System Spec
 
-Version 1.2 · 12 October 2026
+Version 1.3 · 12 October 2026
 
 This document is the complete system specification for the PC8 Product Thinking
 AI Judge backend. Implement exactly what is described. The rubric design baseline
@@ -41,6 +41,7 @@ Tesseract and Poppler are system dependencies; see README.md. The Dockerfile ins
 ├── judge.py          # CLI scoring script
 ├── app.py            # Flask web app
 ├── storage.py        # shared locked, atomic result persistence
+├── review.py         # human review policy and effective score calculation
 ├── requirements.txt
 ├── Dockerfile        # production dependencies and /data result path
 ├── railway.json      # build and healthcheck configuration
@@ -127,9 +128,8 @@ and flags are recomputed from saved confidence whenever results are loaded,
 without changing scores, raw values, distributions, or totals.
 
 Band guidance is Routine review (High), Review recommended (Medium), Review
-required before finalizing (Low), and Review manually (Unavailable). These are
-review guidance labels; no finalization gate or human-review workflow is
-implemented yet. Thresholds are initial policies, not accuracy guarantees.
+required before finalizing (Low), and Review manually (Unavailable). The human review workflow enforces required review of Low and Unavailable
+criteria before finalization; Medium review remains recommended. Thresholds are initial policies, not accuracy guarantees.
 
 Always return a single integer 1–5. Never return fractional scores to the UI.
 The stored `raw` field retains the API's zero-based fractional value. Distribution
@@ -388,19 +388,22 @@ Processing:
 4. On any error → return `{"error": "..."}` with status 500
 
 #### GET /api/results
-Returns the full `results.json` array as JSON.
+Returns summarized result objects as JSON, including effective scores and review
+status, but omitting `assessed_text` and `review_history` (available via detail).
 Returns `[]` if file not found.
 Reads the configured storage path and refreshes confidence bands/review flags
 before returning the response. The UI does not access a filesystem path directly.
 
 ### Imports from judge.py
 `app.py` imports `extract_deck_content`, `score_deck`, `CRITERIA_ORDER`,
-`SUPPORTED_EXTENSIONS`, and `refresh_confidence_flags` from `judge.py`.
+`SUPPORTED_EXTENSIONS`, and `CRITERIA` from `judge.py`. `review.py` supplies
+the result-summary, review, finalization, and conflict-handling functions.
 Do not duplicate the rubric definitions or jev.ai logic in `app.py`.
 
 ### Shared storage
 Both apps import `storage.load_results` as `read_results` and use
-`storage.store_result` for every judged result. Their `load_results` wrappers
+`storage.store_result` for every judged result. Human review mutations use
+`storage.update_result`, under the same exclusive lock and atomic replacement. Their `load_results` wrappers
 refresh confidence flags after reading. Do not implement separate JSON writers
 or an unlocked load/update/save sequence in either app. `judge.py` also uses
 `storage.results_path` to report the actual save location in terminal output.
@@ -438,7 +441,7 @@ Do not implement this step now.
 
 ## 10. Deployment (Railway)
 
-1. Push `judge.py`, `app.py`, `storage.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
+1. Push `judge.py`, `app.py`, `storage.py`, `review.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
 2. Railway builds the Dockerfile, installing Python dependencies, Tesseract, and Poppler, then starts `app.py`
    `railway.json` selects the Dockerfile builder and `/` startup healthcheck.
    Keep the service root at the repository root and clear custom build/start commands.
@@ -451,3 +454,54 @@ Do not implement this step now.
    Results written on the mounted volume survive deployments and restarts.
    Export and transfer existing ephemeral results before replacing the old
    container; attaching a volume does not migrate its old `results.json`.
+
+
+## 11. Human review and score overrides
+
+Prototype access is open, as requested; no password or authentication is required.
+Every review/finalization requires a non-empty reviewer name (max 100 characters).
+Names are self-reported. Review text and saved assessment text are escaped in UI.
+
+AI `criteria[key].score`, `raw`, `distribution`, `confidence`, `raw_total`, and
+`weighted_score` remain unchanged by human review. Add optional `human_review`
+with `score` (integer 1–5), `status` (`confirmed` or `overridden`), `reviewer`,
+`rationale`, `evidence_refs`, and `reviewed_at`. A reset removes the active human
+review and restores pending status, but retains the audit event.
+
+Derived fields include per-criterion `effective_score` and `review_status`;
+result `effective_raw_total`, `effective_weighted_score` (sum × 2),
+`pending_review` (unreviewed Medium/Low/Unavailable keys), `required_review`
+(unreviewed Low/Unavailable keys), `review_revision`, and `submission_status`
+(`provisional`, `reviewed` when all criteria reviewed, or `finalized`).
+Leaderboard sorting and aggregate statistics use effective scores. Finalization
+is only permitted when all four criteria exist and `required_review` is empty.
+Medium reviews can remain pending after finalization. A human edit clears active
+finalization and advances the review revision.
+
+New web and CLI assessments save `assessed_text`, the exact extracted/edited text
+passed to Jev. Existing results without text display a missing-text explanation.
+The original uploaded document remains temporary; no document viewer is added.
+
+### Review endpoints
+
+- `GET /api/results/detail?file=<filename>` returns `{result, anchors}` with
+  saved assessed text, audit history, and the five rubric descriptions per key.
+  Missing submissions return 404.
+- `POST /api/results/review` accepts JSON `file`, `judged_at`, `revision`,
+  `reviewer`, `criterion`, `action` (`confirm`, `override`, `reset`). Overrides
+  additionally require `score`, non-empty `rationale` (max 5000 characters), and
+  non-empty `evidence_refs` (max 2000 characters). Confirm uses the original AI
+  score regardless of the form score. Reset uses the original AI score/pending.
+- `POST /api/results/finalize` accepts JSON `file`, `judged_at`, `revision`,
+  `reviewer`. Finalization records the actor/time and effective total in history.
+- Validation errors return 400; missing files 404; stale assessment timestamps or
+  review revisions 409; storage write failures 500. Mutations perform the version
+  check and write in a single locked transaction to prevent lost review updates.
+
+`review_history` records actions, actors, timestamps, assessment timestamps,
+previous/new review values, and prior finalization when applicable. Rejudging the
+same filename clears active reviews/finalization and preserves history plus a
+`rejudged` event containing the previous assessment (excluding nested history).
+No previous override is automatically applied to a newly scored deck.
+
+Human rationales are separate from the deferred LLM evidence/rationale step.
