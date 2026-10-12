@@ -273,9 +273,12 @@ Two-column layout (1fr 1fr, gap 1.5rem, align-items start). Single column on mob
 White card, border `--border`, border-radius 10px, padding 1.5rem.
 
 **Team name input:** text field above the upload zone, label "Team name", placeholder "e.g. Team Alpha".
-Auto-filled from filename stem when a file is selected if the field is empty
-or still matches the previous file's stem. Selecting a new file updates an
-automatically filled name; a manually customized name is preserved.
+Reset to the selected filename stem on every file selection, including when
+the previous deck's name was manually edited. Users can edit the name after
+selecting the current file. Selecting a file clears the previous editor/result;
+responses from an older in-flight extraction/judging request must not replace
+the current deck's panel. A completed older judging request may still save its
+result to the leaderboard with its original filename/team.
 
 **Upload zone:**
 - Border: 2px dashed `--border`, border-radius 8px, padding 2.5rem 1.5rem, text-align center, cursor pointer

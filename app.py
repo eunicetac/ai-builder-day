@@ -894,13 +894,10 @@ fileInput.addEventListener('change', () => {
 });
 
 function setFile(f) {
-  const previousTeam = selectedFile?.name.replace(/\.(pptx|pdf)$/i, '');
-  const updateTeam = !teamInput.value.trim() || teamInput.value === previousTeam;
   selectedFile = f;
   uploadLabel.innerHTML = `<span class="upload-filename">${esc(f.name)}</span>`;
-  if (updateTeam) {
-    teamInput.value = f.name.replace(/\.(pptx|pdf)$/i, '');
-  }
+  teamInput.value = f.name.replace(/\.(pptx|pdf)$/i, '');
+  resultPanel.innerHTML = '<div class="result-empty"><div>Extract text from this deck to get started.</div></div>';
   judgeBtn.disabled = false;
   judgeBtn.textContent = 'Extract text';
 }
@@ -908,19 +905,22 @@ function setFile(f) {
 // Step 1: Extract text from PPTX or PDF
 judgeBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
+  const file = selectedFile;
   judgeBtn.disabled = true;
   judgeBtn.textContent = '⏳ Extracting…';
   resultPanel.innerHTML = '<div class="result-empty"><div>Extracting slide text…</div></div>';
 
   const form = new FormData();
-  form.append('file', selectedFile);
+  form.append('file', file);
 
   try {
     const resp = await fetch('/api/extract', { method: 'POST', body: form });
     const data = await resp.json();
+    if (selectedFile !== file) return;
     if (data.error) throw new Error(data.error);
     renderTextEditor(data.text);
   } catch (err) {
+    if (selectedFile !== file) return;
     resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
     judgeBtn.disabled = false;
     judgeBtn.textContent = 'Extract text';
@@ -961,24 +961,26 @@ function renderTextEditor(text) {
 
 // Step 2: Judge the (possibly edited) text
 async function judgeText(text) {
+  const file = selectedFile;
   judgeBtn.disabled = true;
   resultPanel.innerHTML = '<div class="result-empty" role="status"><div>Judging — this takes about 30 seconds…</div></div>';
 
-  const team = teamInput.value.trim() || selectedFile.name.replace(/\.(pptx|pdf)$/i, '');
+  const team = teamInput.value.trim() || file.name.replace(/\.(pptx|pdf)$/i, '');
   const form = new FormData();
   form.append('text', text);
   form.append('team', team);
-  form.append('filename', selectedFile.name);
+  form.append('filename', file.name);
 
   try {
     const resp = await fetch('/api/judge-text', { method: 'POST', body: form });
     const data = await resp.json();
+    if (selectedFile !== file) return;
     if (data.error) throw new Error(data.error);
     renderJudgeResult(data);
   } catch (err) {
-    resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
+    if (selectedFile === file) resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
   } finally {
-    judgeBtn.disabled = false;
+    if (selectedFile === file) judgeBtn.disabled = false;
   }
 }
 
