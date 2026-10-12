@@ -28,6 +28,12 @@ Attach the Railway volume to the app service at `/data`. The Dockerfile sets
 `RESULTS_PATH=/data/results.json`, so results persist on that volume across
 deployments and restarts. Clear any old Railway `RESULTS_PATH` override or set
 it to `/data/results.json`. Both the CLI and web app share this storage path.
+The code also reads Railway's automatic `RAILWAY_VOLUME_MOUNT_PATH` variable,
+so the volume is used even when deploying without the Dockerfile. An explicit
+`RESULTS_PATH` must be inside that volume. On Railway, absent volume configuration
+raises an error instead of silently saving to disposable container storage.
+Volume changes must be applied with **Deploy Changes** in Railway; a staged
+volume addition is not yet attached to the running deployment.
 Local development defaults to `results.json`; override `RESULTS_PATH` if needed.
 Result updates are locked and written atomically to support concurrent requests.
 Uploaded files and OCR intermediates are temporary and are not stored on the volume.

@@ -206,6 +206,13 @@ volume mounted at `/data` in Railway. Local runs default to `results.json` in
 the current working directory. Uploaded documents and OCR intermediates remain
 temporary files. Confidence flags/bands are refreshed after reading results.
 
+When Railway provides `RAILWAY_VOLUME_MOUNT_PATH`, an unset `RESULTS_PATH`
+defaults to `<mount>/results.json`, independent of the build method. Explicit
+paths must resolve within that volume. If `RAILWAY_ENVIRONMENT_ID` is present
+but no volume mount variable is available, storage raises an error instead of
+using the ephemeral local fallback. Staged Railway volume additions must be
+applied via Deploy Changes before they are attached to the running deployment.
+
 ---
 
 ## 6. Text Extraction

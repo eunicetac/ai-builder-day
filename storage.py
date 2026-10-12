@@ -9,7 +9,17 @@ from pathlib import Path
 
 
 def results_path() -> Path:
-    return Path(os.environ.get("RESULTS_PATH", "results.json"))
+    configured = os.environ.get("RESULTS_PATH")
+    mount = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if mount:
+        volume_path = Path(mount).resolve()
+        path = Path(configured).resolve() if configured else volume_path / "results.json"
+        if not path.is_relative_to(volume_path):
+            raise RuntimeError("RESULTS_PATH must be inside the attached Railway volume")
+        return path
+    if os.environ.get("RAILWAY_ENVIRONMENT_ID"):
+        raise RuntimeError("No Railway volume is attached. Apply the volume changes and redeploy.")
+    return Path(configured or "results.json")
 
 
 def load_results() -> list:

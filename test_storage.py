@@ -74,6 +74,22 @@ class StorageTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(storage.results_path(), Path("results.json"))
 
+    def test_railway_mount_used_without_docker_configuration(self):
+        with patch.dict(os.environ, {"RAILWAY_ENVIRONMENT_ID": "production",
+                "RAILWAY_VOLUME_MOUNT_PATH": self.directory.name}, clear=True):
+            self.assertEqual(storage.results_path(), Path(self.directory.name).resolve() / "results.json")
+            storage.store_result({"file": "persistent.pdf"})
+            self.assertEqual(storage.load_results(), [{"file": "persistent.pdf"}])
+
+    def test_railway_refuses_missing_volume_or_path_outside_volume(self):
+        with patch.dict(os.environ, {"RAILWAY_ENVIRONMENT_ID": "production"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "No Railway volume"):
+                storage.store_result({"file": "deck.pdf"})
+        with patch.dict(os.environ, {"RAILWAY_VOLUME_MOUNT_PATH": "/data",
+                "RESULTS_PATH": "/app/results.json"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "inside the attached Railway volume"):
+                storage.results_path()
+
 
 if __name__ == "__main__":
     unittest.main()
