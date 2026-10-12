@@ -98,6 +98,12 @@ distribution = response.answers[key].probabilities   # list of 5 floats
 confidence = response.answers[key].confidence        # float or None
 ```
 
+Store the API's confidence unchanged. It summarizes the full distribution;
+it is not an individual level's probability. Results displays it as "Model
+confidence" and separately displays the awarded score's probability from
+`distribution[score - 1]`, matching that score's chart bar. Do not substitute
+the largest probability for model confidence.
+
 Always return a single integer 1–5. Never return fractional scores to the UI.
 
 ---

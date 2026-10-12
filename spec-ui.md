@@ -245,7 +245,11 @@ border-radius 6px, padding .5rem .6rem, text-align center.
 - Criterion label (0.65rem, `--ink-3`)
 - Score badge
 - If borderline: "⚠ borderline" in #E8750A, 0.62rem
-- If confidence present: "conf {N}%" in `--ink-3`, 0.72rem
+- If distribution present: "Score {score} probability: {N}%", using the
+  awarded score's distribution entry and the same rounding as its chart bar.
+- If confidence present: "Model confidence: {N}%" in `--ink-3`, 0.72rem.
+  Tooltip explains that confidence summarizes the full distribution and is
+  not the probability of one score level. Both labels appear on desktop/mobile.
 - Distribution bars below (see §6)
 
 **Desktop:** breakdown section is in a separate `#breakdown-section` div below the table.

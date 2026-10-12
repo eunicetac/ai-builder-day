@@ -517,6 +517,17 @@ function distBars(distribution) {
 }
 
 // --- Results page (always fetches fresh from API) ---
+function criterionMetrics(c, className) {
+  const probability = c?.distribution?.[c.score - 1];
+  const scoreProbability = Number.isFinite(probability)
+    ? `<div class="${className}">Score ${c.score} probability: ${Math.round(probability*100)}%</div>`
+    : '';
+  const confidence = c?.confidence != null
+    ? `<div class="${className}" title="Summarizes how concentrated the full score distribution is; it is not the probability of one score level.">Model confidence: ${Math.round(c.confidence*100)}%</div>`
+    : '';
+  return scoreProbability + confidence;
+}
+
 let _sortedResults = [];
 let _selectedIdx = 0;
 
@@ -639,7 +650,7 @@ function breakdownCard(r) {
     const c = r.criteria[k];
     const lbl = CRITERIA_LABELS[k].abbrev;
     const bl = c?.borderline ? '<div class="mini-borderline">⚠ borderline</div>' : '';
-    const conf = c?.confidence != null ? `<div class="mini-conf">conf ${Math.round(c.confidence*100)}%</div>` : '';
+    const conf = criterionMetrics(c, 'mini-conf');
     const dist = distBars(c?.distribution);
     return `<div class="mini-cell">
       <div class="mini-label">${lbl}</div>
@@ -683,7 +694,7 @@ function renderBreakdown(idx) {
     const cells = CRITERIA_ORDER.map(k => {
       const c = r.criteria[k];
       const bl = c?.borderline ? `<div class="mbd-bl">⚠ borderline</div>` : '';
-      const conf = c?.confidence != null ? `<div class="mbd-conf">conf ${Math.round(c.confidence*100)}%</div>` : '';
+      const conf = criterionMetrics(c, 'mbd-conf');
       return `<div class="mbd-cell">
         <div class="mbd-label">${CRITERIA_LABELS[k].label}</div>
         ${badge(c.score)}
