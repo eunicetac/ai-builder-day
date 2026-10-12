@@ -24,9 +24,19 @@ Clear any custom Build or Start Command so Railway uses the Dockerfile's
 build steps and `python app.py` command. Generate a public domain under
 Settings → Networking, then upload a PPTX or PDF on Text preview to check OCR.
 
-The OCR changes and deployment files must be committed and pushed before
-Railway can build them. Results use the container filesystem and are lost
-when it is replaced, unless you configure persistent storage separately.
+Attach the Railway volume to the app service at `/data`. The Dockerfile sets
+`RESULTS_PATH=/data/results.json`, so results persist on that volume across
+deployments and restarts. Clear any old Railway `RESULTS_PATH` override or set
+it to `/data/results.json`. Both the CLI and web app share this storage path.
+Local development defaults to `results.json`; override `RESULTS_PATH` if needed.
+Result updates are locked and written atomically to support concurrent requests.
+Uploaded files and OCR intermediates are temporary and are not stored on the volume.
+
+Commit/push these changes and redeploy to enable the new path. Existing results
+in the old container are not automatically migrated: export `/api/results`
+before replacing it and transfer that JSON array to `/data/results.json`
+before saving new results. Do not replace an existing populated volume file
+with an old export; merge by filename instead. Configure volume backups in Railway.
 
 Set `OCR_LANGUAGE` to installed Tesseract language codes (default `eng`, e.g.
 `eng+chi_sim` after installing the corresponding language data).

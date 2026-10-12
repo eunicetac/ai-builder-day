@@ -1,6 +1,5 @@
 """PC8 Product Thinking AI Judge — CLI scoring script."""
 
-import json
 import math
 import hashlib
 import io
@@ -17,6 +16,7 @@ from PIL import Image, ImageOps
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from pypdf import PdfReader
+from storage import load_results as read_results, store_result, results_path
 
 COMMON_INSTRUCTIONS = (
     "The Product Thinking AI Judge assesses the quality of product thinking demonstrated in a team's "
@@ -367,22 +367,7 @@ def build_result(team: str, file: str, criteria: dict) -> dict:
 
 
 def load_results() -> list:
-    results_path = Path("results.json")
-    if not results_path.exists():
-        return []
-    with open(results_path) as f:
-        return refresh_confidence_flags(json.load(f))
-
-
-def save_results(results: list) -> None:
-    with open("results.json", "w") as f:
-        json.dump(results, f, indent=2)
-
-
-def upsert_result(results: list, new_result: dict) -> list:
-    updated = [r for r in results if r.get("file") != new_result["file"]]
-    updated.append(new_result)
-    return updated
+    return refresh_confidence_flags(read_results())
 
 
 def print_result(result: dict) -> None:
@@ -452,12 +437,10 @@ def main():
         if target.suffix.lower() not in SUPPORTED_EXTENSIONS:
             print(f"Error: {target} is not a .pptx or .pdf file")
             sys.exit(1)
-        results = load_results()
         result = judge_file(target, target.stem)
         print_result(result)
-        results = upsert_result(results, result)
-        save_results(results)
-        print("  ✓ Saved to results.json")
+        store_result(result)
+        print(f"  ✓ Saved to {results_path()}")
 
     elif target.is_dir():
         pairs = discover_pairs(target)
@@ -476,14 +459,14 @@ def main():
             try:
                 result = judge_file(pptx_path, team)
                 print_result(result)
-                results = upsert_result(results, result)
-                save_results(results)
-                print("  ✓ Saved to results.json")
+                results = store_result(result)
+                judged_files.add(pptx_path.name)
+                print(f"  ✓ Saved to {results_path()}")
                 count += 1
             except Exception as e:
                 print(f"[ERROR] {team} / {pptx_path.name}: {e}")
 
-        print(f"\n{len(results)} result(s) in results.json")
+        print(f"\n{len(results)} result(s) in {results_path()}")
 
     else:
         print(f"Error: {target} is not a file or directory")

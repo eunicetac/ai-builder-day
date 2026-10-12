@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — UI Spec
 
-Version 1.1 · 9 October 2026
+Version 1.2 · 12 October 2026
 
 This document is the complete UI specification for the PC8 Product Thinking AI
 Judge web application. Implement exactly what is described here. Do not add
@@ -172,12 +172,17 @@ A single row of 6 cells (border 1px `--border`, border-radius 8px, overflow hidd
 ## 4. Page: Results
 
 **Topbar:** "Results" | "{N} submissions judged · Last run {date}"
-(When results.json is empty: "Results" | "No submissions yet")
+(When `/api/results` returns an empty array: "Results" | "No submissions yet")
+
+Results are loaded through `/api/results`. On Railway the backend stores them
+on the `/data` volume at `/data/results.json`, so new deployments and restarts
+retain judged submissions. Local development defaults to `results.json`.
+The UI uses the same result schema regardless of storage location.
 
 ### Summary row
 
 4 cards in a row (grid, equal columns, gap 1rem; 2×2 on mobile):
-- Teams judged (count of entries in results.json)
+- Teams judged (count of entries returned by `/api/results`)
 - Highest score /40
 - Average score /40 (rounded to nearest integer)
 - Confidence review flags (count of criteria across all teams where `borderline: true`)
@@ -391,6 +396,11 @@ On the Criteria page, badge size is 1.6rem × 1.6rem, font .75rem (same otherwis
 - Active nav item is highlighted in both sidebar and bottom tab bar simultaneously
 - Default page on load: Criteria
 - Navigating to Results always fetches fresh data from `/api/results`
+- Saved results remain available after Railway redeployment when the `/data`
+  volume is attached and the backend uses its configured persistent path.
+- A missing result file returns an empty array and uses the existing empty state.
+  A storage read failure must use the Results error state rather than implying
+  that there are no submissions.
 
 ---
 

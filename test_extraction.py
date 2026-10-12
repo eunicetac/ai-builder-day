@@ -152,7 +152,7 @@ class PdfExtractionTests(unittest.TestCase):
             with patch.object(app, "extract_deck_content", return_value="PDF words") as extract, \
                     patch.object(app, "score_deck", return_value=criteria), \
                     patch.object(app, "load_results", return_value=[]), \
-                    patch.object(app, "save_results"):
+                    patch.object(app, "store_result"):
                 response = client.post(route, data={"file": (io.BytesIO(b"pdf"), "Alpha.PDF")})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(extract.call_args.args[0].suffix, ".pdf")

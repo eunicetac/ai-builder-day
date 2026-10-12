@@ -1,6 +1,5 @@
 """PC8 Product Thinking AI Judge — Flask web app."""
 
-import json
 import os
 import tempfile
 from datetime import datetime, timezone
@@ -10,9 +9,9 @@ from flask import Flask, jsonify, render_template_string, request
 
 from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, refresh_confidence_flags, score_deck
 
-app = Flask(__name__)
+from storage import load_results as read_results, store_result
 
-RESULTS_PATH = Path("results.json")
+app = Flask(__name__)
 
 HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -964,21 +963,7 @@ navigate('criteria');
 
 
 def load_results():
-    if not RESULTS_PATH.exists():
-        return []
-    with open(RESULTS_PATH) as f:
-        return refresh_confidence_flags(json.load(f))
-
-
-def save_results(results):
-    with open(RESULTS_PATH, "w") as f:
-        json.dump(results, f, indent=2)
-
-
-def upsert_result(results, new_result):
-    updated = [r for r in results if r.get("file") != new_result.get("file")]
-    updated.append(new_result)
-    return updated
+    return refresh_confidence_flags(read_results())
 
 
 @app.route("/")
@@ -1019,9 +1004,7 @@ def api_judge():
             "criteria": criteria,
         }
 
-        results = load_results()
-        results = upsert_result(results, result)
-        save_results(results)
+        store_result(result)
 
         return jsonify(result)
     except Exception as e:
@@ -1057,9 +1040,7 @@ def api_judge_text():
             "weighted_score": weighted_score,
             "criteria": criteria,
         }
-        results = load_results()
-        results = upsert_result(results, result)
-        save_results(results)
+        store_result(result)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

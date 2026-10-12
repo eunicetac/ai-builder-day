@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — System Spec
 
-Version 1.1 · 9 October 2026
+Version 1.2 · 12 October 2026
 
 This document is the complete system specification for the PC8 Product Thinking
 AI Judge backend. Implement exactly what is described. The rubric design baseline
@@ -18,7 +18,7 @@ rubric decisions.
 | Scoring engine | jev.ai via `typesafe-sdk` pip package |
 | Text extraction | `markitdown[pptx]` for native text; `python-pptx`, Pillow, and Tesseract for embedded image OCR; Poppler for rendered PDF pages; `pypdf` for page count/password checks |
 | Deployment | Railway (from GitHub repo) |
-| Storage | Local filesystem (`results.json`); Railway filesystem is ephemeral |
+| Storage | JSON on the Railway volume at `/data/results.json`; local default `results.json` |
 
 ### Dependencies (requirements.txt)
 ```
@@ -40,8 +40,11 @@ Tesseract and Poppler are system dependencies; see README.md. The Dockerfile ins
 /
 ├── judge.py          # CLI scoring script
 ├── app.py            # Flask web app
+├── storage.py        # shared locked, atomic result persistence
 ├── requirements.txt
-└── results.json      # written by judge.py, read by app.py (gitignored or committed)
+├── Dockerfile        # production dependencies and /data result path
+├── railway.json      # build and healthcheck configuration
+└── results.json      # local default; Railway stores this on the /data volume
 ```
 
 No templates folder. All HTML is inline in `app.py` using `render_template_string`.
@@ -53,6 +56,7 @@ No templates folder. All HTML is inline in `app.py` using `render_template_strin
 | Variable | Required | Description |
 |---|---|---|
 | `TYPESAFE_API_KEY` | Yes | API key from jev-ai.pro |
+| `RESULTS_PATH` | Optional locally | Result JSON path; local default `results.json`. Docker sets `/data/results.json`. |
 | `CONFIDENCE_LOW_THRESHOLD` | Optional | Lower boundary of Medium confidence; default `0.50`. |
 | `CONFIDENCE_HIGH_THRESHOLD` | Optional | Lower boundary of High confidence; default `0.80`. |
 | `OCR_LANGUAGE` | Optional | Installed Tesseract language codes; default `eng`. |
@@ -190,8 +194,17 @@ weighted_score = (raw_total / 20) * 40       (range 8.0–40.0)
 ```
 
 ### results.json
-An array of result objects. Written incrementally — appended after each team is judged.
-Never fully overwritten; new results are appended and duplicates (matched by `file`) are replaced.
+An array of result objects. Both apps use `storage.py` to append each judged
+result, replacing duplicates matched by `file`. The entire read/update/write
+operation is protected by a filesystem lock; the JSON file is atomically
+replaced using a temporary file in the same directory, preserving other entries.
+The parent directory is created on first save. Missing files return `[]`;
+malformed existing JSON raises an error rather than being silently discarded.
+
+`RESULTS_PATH` is configurable. Docker defaults to `/data/results.json`, on the
+volume mounted at `/data` in Railway. Local runs default to `results.json` in
+the current working directory. Uploaded documents and OCR intermediates remain
+temporary files. Confidence flags/bands are refreshed after reading results.
 
 ---
 
@@ -260,10 +273,10 @@ python judge.py <path-to-folder>          # batch judge all teams
 1. Extract text from the `.pptx` or `.pdf`
 2. Score via jev.ai
 3. Build result object with team name derived from `pptx_path.stem`
-4. Load existing `results.json` (empty list if not found)
-5. Remove any existing entry with the same `file` value
-6. Append new result
-7. Write `results.json`
+4. Call `storage.store_result(result)` to save to the configured `RESULTS_PATH`
+5. Under an exclusive lock, load existing results (empty list if not found)
+6. Replace any entry with the same `file` value and append the new result
+7. Atomically replace the JSON file before releasing the lock
 8. Print formatted result to terminal
 
 ### Batch mode (folder)
@@ -283,11 +296,12 @@ If a subfolder contains multiple supported files, judge each one separately.
 
 **Processing:**
 1. Discover all `(team_name, pptx_path)` pairs for `.pptx` and `.pdf` files
-2. Load existing `results.json`
+2. Load existing results from the configured `RESULTS_PATH`
 3. For each pair, skip if `pptx_path.name` already in results
-4. Judge, append result, write `results.json` immediately after each team
+4. Judge and call `storage.store_result(result)` immediately after each team;
+   update the in-memory results and already-judged filenames after each save
 5. On error for one team: print error, continue to next team
-6. Print summary at end: "{N} result(s) in results.json"
+6. Print summary at end: "{N} result(s) in {RESULTS_PATH}"
 
 **Skipping already-judged files** prevents data loss if the script is interrupted
 and rerun. Matched by filename only (not team name).
@@ -376,10 +390,20 @@ Processing:
 #### GET /api/results
 Returns the full `results.json` array as JSON.
 Returns `[]` if file not found.
+Reads the configured storage path and refreshes confidence bands/review flags
+before returning the response. The UI does not access a filesystem path directly.
 
 ### Imports from judge.py
-`app.py` imports `extract_deck_content`, `score_deck`, and `CRITERIA_ORDER` from `judge.py`.
+`app.py` imports `extract_deck_content`, `score_deck`, `CRITERIA_ORDER`,
+`SUPPORTED_EXTENSIONS`, and `refresh_confidence_flags` from `judge.py`.
 Do not duplicate the rubric definitions or jev.ai logic in `app.py`.
+
+### Shared storage
+Both apps import `storage.load_results` as `read_results` and use
+`storage.store_result` for every judged result. Their `load_results` wrappers
+refresh confidence flags after reading. Do not implement separate JSON writers
+or an unlocked load/update/save sequence in either app. `judge.py` also uses
+`storage.results_path` to report the actual save location in terminal output.
 
 ### Navigation
 All four pages (Criteria, Results, Judge a deck, Text preview) are rendered as `<div>` elements
@@ -414,7 +438,7 @@ Do not implement this step now.
 
 ## 10. Deployment (Railway)
 
-1. Push `judge.py`, `app.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
+1. Push `judge.py`, `app.py`, `storage.py`, `requirements.txt`, and `Dockerfile` to GitHub repo root
 2. Railway builds the Dockerfile, installing Python dependencies, Tesseract, and Poppler, then starts `app.py`
    `railway.json` selects the Dockerfile builder and `/` startup healthcheck.
    Keep the service root at the repository root and clear custom build/start commands.
@@ -422,5 +446,8 @@ Do not implement this step now.
    - `TYPESAFE_API_KEY` = jev-ai.pro API key
    - `FLASK_ENV` = production
 4. Generate domain: Railway Settings → Networking → Generate Domain
-5. `results.json` does not persist across Railway restarts. Commit it to the
-   repo after running `judge.py` locally, or re-run judging after each deploy.
+5. Attach the persistent volume to the app service at `/data`. The Dockerfile
+   sets `RESULTS_PATH=/data/results.json`; clear any conflicting Railway override.
+   Results written on the mounted volume survive deployments and restarts.
+   Export and transfer existing ephemeral results before replacing the old
+   container; attaching a volume does not migrate its old `results.json`.
