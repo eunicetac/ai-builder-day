@@ -92,7 +92,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .conv-note{font-size:.75rem;color:var(--ink-3)}
 
 /* Results page */
-.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.8rem}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-bottom:1.8rem}
 .summary-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem}
 .summary-value{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums}
 .summary-label{font-size:.72rem;color:var(--ink-3);margin-top:.35rem}
@@ -621,8 +621,6 @@ async function renderResults() {
 
   const sorted = _sortedResults;
   const highest = Math.max(...results.map(r => resultScore(r)));
-  const avg = Math.round(results.reduce((s,r) => s+resultScore(r), 0) / results.length);
-  const flags = results.reduce((s,r) => s + CRITERIA_ORDER.filter(k => r.pending_review?.includes(k)).length, 0);
   const lastDate = results.reduce((latest, r) => r.judged_at > latest ? r.judged_at : latest, results[0].judged_at);
   const lastDateFmt = new Date(lastDate).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
 
@@ -632,8 +630,6 @@ async function renderResults() {
     <div class="summary-grid">
       <div class="summary-card"><div class="summary-value">${results.length}</div><div class="summary-label">Teams judged</div></div>
       <div class="summary-card"><div class="summary-value">${highest.toFixed(0)}<span style="font-size:1rem;font-weight:400;color:var(--ink-3)">/40</span></div><div class="summary-label">Highest score</div></div>
-      <div class="summary-card"><div class="summary-value">${avg}<span style="font-size:1rem;font-weight:400;color:var(--ink-3)">/40</span></div><div class="summary-label">Average score</div></div>
-      <div class="summary-card"><div class="summary-value">${flags}</div><div class="summary-label">Confidence review flags</div></div>
     </div>`;
 
   const tableRows = sorted.map((r, i) => {

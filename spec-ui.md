@@ -181,12 +181,9 @@ The UI uses the same result schema regardless of storage location.
 
 ### Summary row
 
-4 cards in a row (grid, equal columns, gap 1rem; 2×2 on mobile):
+2 cards in a row on desktop and mobile (grid, equal columns, gap 1rem):
 - Teams judged (count of entries returned by `/api/results`)
 - Highest score /40
-- Average score /40 (rounded to nearest integer)
-- Confidence review flags (count of pending Medium/Low/Unavailable criteria
-  across all teams, using `pending_review`)
 
 Each card: white, border `--border`, border-radius 10px, padding 1.1rem 1.2rem.
 Value: 1.7rem, weight 800. Label: 0.72rem, `--ink-3`, margin-top .35rem.
@@ -412,7 +409,7 @@ At ≤ 768px:
 - Sidebar hidden; bottom tab bar shown
 - Topbar meta text hidden
 - Content padding: 1rem horizontal, 5rem bottom (above tab bar)
-- Summary grid: 2×2 instead of 1×4
+- Summary grid: 2 equal columns
 - Anchor grid: 1 column (each cell is a flex row with badge + level + description)
 - Judge layout: single column
 - Leaderboard table hidden; mobile card list shown
@@ -429,8 +426,8 @@ Tooltips provide guidance: Routine review, Review recommended, Review required
 before finalizing, or Review manually for Unavailable. Low and Unavailable criteria require human review before finalization; Medium
 review remains recommended.
 
-The existing `borderline` field is true for Medium/Low. The summary counts these
-criteria as Confidence review flags; the Judge footer lists them as requiring
+The existing `borderline` field is true for Medium/Low. The Judge footer lists
+these criteria as requiring
 or recommending review. Missing confidence is not counted as Medium/Low and
 is explicitly labeled Unavailable. Results loaded from storage are refreshed
 using `CONFIDENCE_LOW_THRESHOLD` and `CONFIDENCE_HIGH_THRESHOLD`.
@@ -439,8 +436,8 @@ using `CONFIDENCE_LOW_THRESHOLD` and `CONFIDENCE_HIGH_THRESHOLD`.
 ## 12. Human review interface
 
 Results toolbar includes a **Needs review only** checkbox. It filters submissions
-with pending Medium/Low/Unavailable criteria. Summary statistics cover all
-submissions and use effective scores; review flags count pending review items.
+with pending Medium/Low/Unavailable criteria. The Teams judged and Highest score
+summary cards cover all submissions and use effective scores.
 Desktop rows and mobile cards show provisional/reviewed/finalized status.
 
 Both breakdown layouts include **Review / override** per criterion and

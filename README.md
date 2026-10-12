@@ -80,7 +80,8 @@ The leaderboard uses human scores where available and recalculates totals;
 original AI scores/totals remain unchanged. Low and Unavailable confidence
 criteria require confirmation or override before **Finalize submission** is
 allowed. Medium review is recommended. **Needs review only** filters pending
-Medium, Low, or Unavailable criteria; the summary counts pending review items.
+Medium, Low, or Unavailable criteria. Results summary cards show Teams judged
+and Highest score.
 Editing a finalized result clears finalization; rejudging archives previous
 reviews/assessment and starts a fresh provisional result. Concurrent stale
 reviews are rejected; use **Refresh assessment** and review the latest version.
