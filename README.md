@@ -97,3 +97,9 @@ names are self-entered, not authenticated identities. Review history and assesse
 text are stored with results on `/data/results.json`. New assessments save the
 exact text sent to Jev; older entries without saved text need the original deck
 or a new assessment. The original uploaded file is not retained.
+
+To remove a mistaken submission, select it in Results and choose **Delete result**
+below the desktop/mobile breakdown. Confirm the team and filename. This permanently
+removes that result and its review history; you can then upload the deck again
+with the correct team name. Other results are retained. A stale page cannot delete
+an assessment that has since been rejudged or reviewed; refresh Results first.

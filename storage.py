@@ -55,6 +55,16 @@ def update_result(filename: str, update) -> dict:
     return changed[0]
 
 
+def delete_result(filename: str, validate) -> None:
+    def remove(results):
+        result = next((r for r in results if r.get("file") == filename), None)
+        if result is None:
+            raise KeyError("Submission not found")
+        validate(result)
+        return [r for r in results if r.get("file") != filename]
+    mutate_results(remove)
+
+
 def mutate_results(update) -> list:
     """Lock the entire read/update/write cycle and atomically replace the file."""
     path = results_path()

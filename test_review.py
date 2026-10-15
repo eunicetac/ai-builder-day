@@ -112,6 +112,46 @@ class ReviewTests(unittest.TestCase):
         self.assertNotIn("review_history", result)
         self.assertEqual(self.client.get("/api/results/detail?file=missing.pdf").status_code, 404)
 
+    def test_delete_removes_selected_result_and_preserves_other_submissions(self):
+        other = copy.deepcopy(self.original)
+        other["file"] = "other.pdf"
+        storage.store_result(other)
+        self.client.post("/api/results/review", json=self.body())
+        response = self.client.post("/api/results/delete", json=self.body())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"deleted": "deck.pdf"})
+        self.assertEqual(storage.load_results(), [other])
+        self.assertEqual(self.client.get("/api/results/detail?file=deck.pdf").status_code, 404)
+
+    def test_delete_last_result_returns_empty_list_and_allows_rejudging(self):
+        response = self.client.post("/api/results/delete", json=self.body())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get("/api/results").json, [])
+        self.assertEqual(json.loads(self.path.read_text()), [])
+        storage.store_result(copy.deepcopy(self.original))
+        self.assertEqual(len(self.client.get("/api/results").json), 1)
+
+    def test_stale_delete_cannot_remove_updated_or_rejudged_result(self):
+        stale = self.body()
+        self.client.post("/api/results/review", json=self.body())
+        self.assertEqual(self.client.post("/api/results/delete", json=stale).status_code, 409)
+        stale = self.body()
+        new = copy.deepcopy(self.original)
+        new["judged_at"] = "2026-10-15T00:00:00Z"
+        storage.store_result(new)
+        self.assertEqual(self.client.post("/api/results/delete", json=stale).status_code, 409)
+        self.assertEqual(len(storage.load_results()), 1)
+
+    def test_delete_validation_and_failed_storage_write(self):
+        self.assertEqual(self.client.post("/api/results/delete", json={}).status_code, 400)
+        self.assertEqual(self.client.post("/api/results/delete", json=self.body(file="missing.pdf")).status_code, 404)
+        before = self.path.read_bytes()
+        body = self.body()
+        with patch.object(storage.os, "replace", side_effect=OSError("write failed")):
+            response = self.client.post("/api/results/delete", json=body)
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(self.path.read_bytes(), before)
+
 
 if __name__ == "__main__":
     unittest.main()

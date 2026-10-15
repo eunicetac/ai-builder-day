@@ -9,9 +9,9 @@ from flask import Flask, jsonify, render_template_string, request
 
 from judge import CRITERIA_ORDER, SUPPORTED_EXTENSIONS, extract_deck_content, score_deck
 
-from storage import load_results as read_results, store_result, update_result
+from storage import load_results as read_results, store_result, update_result, delete_result
 from judge import CRITERIA
-from review import summarize_result, review_criterion, finalize_result, ReviewConflict
+from review import summarize_result, review_criterion, finalize_result, check_version, ReviewConflict
 
 app = Flask(__name__)
 
@@ -210,6 +210,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .review-toolbar label{font-weight:600;display:flex;gap:.4rem;align-items:center}
 .review-button{padding:.4rem .65rem;border:1px solid var(--border);background:var(--white);color:var(--accent);border-radius:6px;cursor:pointer;font-size:.75rem;margin-top:.4rem}
 .review-button:disabled{opacity:.5;cursor:not-allowed}
+.delete-button{color:#D93025}
 .human-note{display:block;font-size:.65rem;color:var(--accent);margin-top:.2rem}
 .review-status{font-size:.7rem;color:var(--ink-2);margin-top:.2rem}
 .review-dialog{border:1px solid var(--border);border-radius:12px;padding:1.4rem;width:min(900px,95vw);max-height:90vh;margin:auto;color:var(--ink);background:var(--white)}
@@ -420,6 +421,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   <!-- ========================== PAGE: RESULTS ========================== -->
   <div class="content page" id="page-results">
     <div class="review-toolbar"><label><input type="checkbox" id="needs-review" onchange="renderResults()"> Needs review only</label><span>Human reviews update competition scores; AI assessments are preserved.</span></div>
+    <p id="results-feedback" role="status" aria-live="polite"></p>
     <div id="results-content"><div style="color:var(--ink-3);padding:2rem 0">Loading…</div></div>
   </div>
 
@@ -604,6 +606,8 @@ async function renderResults() {
   }
 
   if (!results.length) {
+    _sortedResults = [];
+    _selectedIdx = 0;
     topbarMeta.textContent = 'No submissions yet';
     container.innerHTML = `
       <div class="summary-grid">
@@ -722,6 +726,7 @@ function breakdownCard(r) {
       <span class="breakdown-wscore">${resultScore(r).toFixed(0)}/40 · Raw ${resultRaw(r)}/20</span>
     </div>
     <div class="review-status">${esc(r.submission_status || 'provisional')} · AI total ${r.weighted_score}/40</div><div class="mini-grid">${cells}</div><button class="review-button" onclick="openReview(_selectedIdx)">Review history / finalize</button>
+    <button class="review-button delete-button" data-delete-result onclick="deleteSelectedResult(_selectedIdx)">Delete result</button>
   </div>`;
 }
 
@@ -763,13 +768,37 @@ function renderBreakdown(idx) {
     const mbd = document.createElement('div');
     mbd.id = 'mobile-breakdown';
     mbd.className = 'mobile-breakdown';
-    mbd.innerHTML = `<div class="mbd-header">${esc(r.team)} · ${resultScore(r).toFixed(0)}/40 · Raw ${resultRaw(r)}/20</div><div class="review-status">${esc(r.submission_status || 'provisional')} · AI total ${r.weighted_score}/40</div><div class="mbd-grid">${cells}</div><button class="review-button" onclick="openReview(_selectedIdx)">Review history / finalize</button>`;
+    mbd.innerHTML = `<div class="mbd-header">${esc(r.team)} · ${resultScore(r).toFixed(0)}/40 · Raw ${resultRaw(r)}/20</div><div class="review-status">${esc(r.submission_status || 'provisional')} · AI total ${r.weighted_score}/40</div><div class="mbd-grid">${cells}</div><button class="review-button" onclick="openReview(_selectedIdx)">Review history / finalize</button><button class="review-button delete-button" data-delete-result onclick="deleteSelectedResult(_selectedIdx)">Delete result</button>`;
     selectedCard.after(mbd);
   }
 }
 
 function selectBreakdown(idx) {
   renderBreakdown(idx);
+}
+
+let _deleteBusy = false;
+async function deleteSelectedResult(idx) {
+  if (_deleteBusy) return;
+  const result = _sortedResults[idx];
+  if (!result || !window.confirm(`Delete the result for ${result.team} (${result.file})?\n\nThis permanently removes its scores, saved text, and human review history. This cannot be undone.`)) return;
+  _deleteBusy = true;
+  const feedback = document.getElementById('results-feedback');
+  feedback.textContent = 'Deleting result…';
+  document.querySelectorAll('[data-delete-result]').forEach(b => b.disabled = true);
+  try {
+    const resp = await fetch('/api/results/delete', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({file:result.file, judged_at:result.judged_at, revision:result.review_revision ?? 0})});
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Could not delete result');
+    await renderResults();
+    feedback.textContent = `Deleted the result for ${result.team}. You can upload the deck again with the correct team name.`;
+  } catch (error) {
+    feedback.textContent = error.message;
+  } finally {
+    _deleteBusy = false;
+    document.querySelectorAll('[data-delete-result]').forEach(b => b.disabled = false);
+  }
 }
 
 let _reviewData = null;
@@ -1189,6 +1218,22 @@ def api_review():
 @app.route("/api/results/finalize", methods=["POST"])
 def api_finalize():
     return apply_human_review(finalize_result)
+
+
+@app.route("/api/results/delete", methods=["POST"])
+def api_delete_result():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("file"), str) or not data["file"]:
+        return jsonify({"error": "A JSON request with a submission filename is required"}), 400
+    try:
+        delete_result(data["file"], lambda result: check_version(result, data))
+        return jsonify({"deleted": data["file"]})
+    except ReviewConflict:
+        return jsonify({"error": "This result changed. Refresh Results before deleting it."}), 409
+    except KeyError:
+        return jsonify({"error": "Submission not found"}), 404
+    except OSError:
+        return jsonify({"error": "Could not delete the result. Please try again."}), 500
 
 
 @app.route("/api/judge-text", methods=["POST"])

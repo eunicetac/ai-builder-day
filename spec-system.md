@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — System Spec
 
-Version 1.3 · 12 October 2026
+Version 1.4 · 15 October 2026
 
 This document is the complete system specification for the PC8 Product Thinking
 AI Judge backend. Implement exactly what is described. The rubric design baseline
@@ -512,3 +512,16 @@ same filename clears active reviews/finalization and preserves history plus a
 No previous override is automatically applied to a newly scored deck.
 
 Human rationales are separate from the deferred LLM evidence/rationale step.
+
+## 12. Deleting a result
+
+`POST /api/results/delete` accepts JSON `file`, `judged_at`, and integer
+`revision`. Under the same storage lock, locate the filename, verify the
+assessment timestamp/review revision, remove that result, and atomically write
+the remaining array. Deletion removes its saved text, scores, active human
+reviews, finalization, and history. Other submissions remain unchanged.
+
+Return `{"deleted": "<filename>"}` on success; 400 for malformed input, 404 for
+a missing submission, 409 for a stale timestamp/revision, or 500 for a write
+failure. Deleting the final result leaves `[]`. The same file can be judged
+again after deletion. Deletion uses the prototype's existing open-access policy.

@@ -1,6 +1,6 @@
 # PC8 Product Thinking Judge — UI Spec
 
-Version 1.3 · 12 October 2026
+Version 1.4 · 15 October 2026
 
 This document is the complete UI specification for the PC8 Product Thinking AI
 Judge web application. Implement exactly what is described here. Do not add
@@ -473,3 +473,18 @@ leaderboard, totals/ranks, summaries, and review filter immediately.
 
 No password/login flow is included for this prototype. Reviewer names are
 self-entered; review UI does not imply authenticated identity.
+
+## 13. Delete result
+
+Add a red-text **Delete result** button beside Review history / finalize in
+both the desktop criterion breakdown and the selected mobile breakdown.
+Require browser confirmation naming the team and filename and explaining that
+scores, saved text, and human review history are permanently removed without undo.
+Cancel makes no API request. Confirm sends the selected result's filename,
+assessment timestamp, and review revision to `/api/results/delete`.
+
+Disable delete actions while waiting. Display success/errors in an accessible
+live status region above Results. Successful deletion refreshes the leaderboard,
+rank order, summary cards, selection, and review filter. If no results remain,
+show the existing empty state. A stale-data error asks the user to refresh
+Results before retrying. No other submission is removed.
