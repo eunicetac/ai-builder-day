@@ -102,6 +102,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .lb-table{width:100%;table-layout:fixed;border-collapse:collapse}
 .lb-table th{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem .75rem;font-size:.65rem;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-table td{padding:.75rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.rounding-comparison th,.rounding-comparison td{text-align:center}
 .lb-table tr:last-child td{border-bottom:none}
 .lb-table tr:hover td{background:#fafbff}
 .col-rank{width:2.5rem;text-align:center}
@@ -608,7 +609,7 @@ function roundingComparison(results) {
     <strong>Unrounded AI score comparison</strong>
     <p>Preview only. Uses original API scores + 1 on the 1–5 rubric, capped to rubric bounds, then sums × 2. Human reviews are excluded from both columns. Display uses two decimals; totals and ranks use full precision.</p>
     <p>Ranks use matching scores as ties and include only teams with original scores. Criterion order: Problem &amp; User / Problem Understanding / Outcomes / Test &amp; Learn.</p>
-    <div style="overflow-x:auto"><table class="lb-table" style="width:100%;min-width:650px">
+    <div style="overflow-x:auto"><table class="lb-table rounding-comparison" style="width:100%;min-width:650px">
     <thead><tr><th>Team</th><th>Rounded AI /40</th><th>Unrounded AI /40</th><th>Change</th><th>AI rank (rounded → unrounded)</th><th>Unrounded criteria /5</th></tr></thead>
     <tbody>${rows}</tbody></table></div></div>`;
 }
