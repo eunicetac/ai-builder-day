@@ -420,7 +420,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 
   <!-- ========================== PAGE: RESULTS ========================== -->
   <div class="content page" id="page-results">
-    <div class="review-toolbar"><label><input type="checkbox" id="needs-review" onchange="renderResults()"> Needs review only</label><span>Human reviews update competition scores; AI assessments are preserved.</span></div>
+    <div class="review-toolbar"><label><input type="checkbox" id="needs-review" onchange="renderResults()"> Needs review only</label><label><input type="checkbox" id="compare-unrounded" onchange="renderResults()"> Compare unrounded AI scores</label><span>Human reviews update competition scores; AI assessments are preserved.</span></div>
     <p id="results-feedback" role="status" aria-live="polite"></p>
     <div id="results-content"><div style="color:var(--ink-3);padding:2rem 0">Loading…</div></div>
   </div>
@@ -580,6 +580,39 @@ function criterionMetrics(c, className) {
   return scoreProbability + confidence;
 }
 
+function unroundedAiScores(r) {
+  const scores = CRITERIA_ORDER.map(k => r.criteria[k]?.raw);
+  if (!scores.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
+  return scores.map(v => Math.max(1, Math.min(5, v + 1)));
+}
+
+function roundingComparison(results) {
+  if (!document.getElementById('compare-unrounded').checked) return '';
+  const entries = results.map(r => {
+    const scores = unroundedAiScores(r);
+    return {r, scores, total: scores ? scores.reduce((a,b) => a+b, 0) * 2 : null};
+  });
+  const available = entries.filter(e => e.total !== null);
+  const roundedRank = e => 1 + available.filter(other => other.r.weighted_score > e.r.weighted_score).length;
+  const decimalRank = e => 1 + available.filter(other => other.total > e.total).length;
+  entries.sort((a,b) => (b.total ?? -Infinity) - (a.total ?? -Infinity));
+  const rows = entries.map(e => {
+    const delta = e.total === null ? null : e.total - e.r.weighted_score;
+    return `<tr><td>${esc(e.r.team)}</td><td>${e.r.weighted_score}</td>
+      <td>${e.total === null ? 'Unavailable' : e.total.toFixed(2)}</td>
+      <td>${delta === null ? '—' : (delta > 0 ? '+' : '') + delta.toFixed(2)}</td>
+      <td>${e.total === null ? '—' : `${roundedRank(e)} → ${decimalRank(e)}`}</td>
+      <td>${e.scores ? e.scores.map(v => v.toFixed(2)).join(' / ') : 'Original scores missing'}</td></tr>`;
+  }).join('');
+  return `<div class="summary-card" style="margin-bottom:1.8rem">
+    <strong>Unrounded AI score comparison</strong>
+    <p>Preview only. Uses original API scores + 1 on the 1–5 rubric, capped to rubric bounds, then sums × 2. Human reviews are excluded from both columns. Display uses two decimals; totals and ranks use full precision.</p>
+    <p>Ranks use matching scores as ties and include only teams with original scores. Criterion order: Problem &amp; User / Problem Understanding / Outcomes / Test &amp; Learn.</p>
+    <div style="overflow-x:auto"><table class="lb-table" style="width:100%;min-width:650px">
+    <thead><tr><th>Team</th><th>Rounded AI /40</th><th>Unrounded AI /40</th><th>Change</th><th>AI rank (rounded → unrounded)</th><th>Unrounded criteria /5</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+}
+
 function resultScore(r) { return r.effective_weighted_score ?? r.weighted_score; }
 function resultRaw(r) { return r.effective_raw_total ?? r.raw_total; }
 function resultBadge(c) {
@@ -702,7 +735,7 @@ async function renderResults() {
 
   const mobileLbHtml = `<div class="mobile-lb" id="mobile-lb">${mobileCards}</div>`;
 
-  container.innerHTML = summaryHtml + tableHtml + mobileLbHtml + '<div id="breakdown-section"></div>';
+  container.innerHTML = summaryHtml + roundingComparison(sorted) + tableHtml + mobileLbHtml + '<div id="breakdown-section"></div>';
   if (_sortedResults.length) renderBreakdown(_selectedIdx);
   else container.insertAdjacentHTML('beforeend', '<p>No submissions need review.</p>');
 }
