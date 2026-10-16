@@ -243,7 +243,9 @@ def extract_pdf_content(pdf_path: Path) -> str:
                 prefix = Path(directory) / "page"
                 rendered = subprocess.run(
                     ["pdftoppm", "-f", str(page_number), "-l", str(page_number),
-                     "-singlefile", "-r", "300", "-png", str(pdf_path), str(prefix)],
+                     # Bound image memory even for PDFs with oversized page dimensions.
+                     "-singlefile", "-r", "300", "-scale-to", "2400",
+                     "-png", str(pdf_path), str(prefix)],
                     capture_output=True, text=True, timeout=120,
                 )
                 if rendered.returncode != 0:

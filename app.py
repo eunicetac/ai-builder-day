@@ -965,6 +965,20 @@ function setFile(f) {
   judgeBtn.textContent = 'Extract text';
 }
 
+async function readExtractionResponse(resp) {
+  let data;
+  try {
+    data = await resp.json();
+  } catch (_) {
+    throw new Error(`Text extraction failed (HTTP ${resp.status}). The server may have restarted or timed out. Please try again.`);
+  }
+  if (!resp.ok || typeof data?.text !== 'string' || data?.error) {
+    throw new Error(typeof data?.error === 'string' ? data.error :
+      `Text extraction failed (HTTP ${resp.status}): the server returned no extracted text. Please try again.`);
+  }
+  return data.text;
+}
+
 // Step 1: Extract text from PPTX or PDF
 judgeBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
@@ -978,10 +992,9 @@ judgeBtn.addEventListener('click', async () => {
 
   try {
     const resp = await fetch('/api/extract', { method: 'POST', body: form });
-    const data = await resp.json();
+    const text = await readExtractionResponse(resp);
     if (selectedFile !== file) return;
-    if (data.error) throw new Error(data.error);
-    renderTextEditor(data.text);
+    renderTextEditor(text);
   } catch (err) {
     if (selectedFile !== file) return;
     resultPanel.innerHTML = `<div class="result-empty" style="color:#D93025">Error: ${esc(err.message)}</div>`;
@@ -1131,9 +1144,7 @@ extractBtn.addEventListener('click', async () => {
 
   try {
     const resp = await fetch('/api/extract', { method: 'POST', body: form });
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-    const text = data.text || '';
+    const text = await readExtractionResponse(resp);
     const charCount = text.length.toLocaleString();
     const wordCount = text.trim() ? text.trim().split(/\s+/).length.toLocaleString() : '0';
     textCard.innerHTML = `

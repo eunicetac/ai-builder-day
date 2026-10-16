@@ -111,6 +111,7 @@ class PdfExtractionTests(unittest.TestCase):
                 self.assertEqual(command[command.index("-l") + 1], page_number)
                 self.assertIn("-singlefile", command)
                 self.assertEqual(command[command.index("-r") + 1], "300")
+                self.assertEqual(command[command.index("-scale-to") + 1], "2400")
                 Path(command[-1]).with_suffix(".png").write_bytes(b"rendered page " + page_number.encode())
                 return subprocess.CompletedProcess(command, 0, "", "")
 
